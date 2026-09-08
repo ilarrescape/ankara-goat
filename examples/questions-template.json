@@ -1,0 +1,36 @@
+[
+  {
+    "type": "multiple_choice",
+    "prompt": "¿Qué selección ganó el Mundial de 2014?",
+    "options": ["Alemania", "Argentina", "Brasil", "España"],
+    "correctAnswer": "Alemania",
+    "category": "Selecciones",
+    "competition": "Mundial",
+    "knowledgeArea": "Mundiales",
+    "tier": 1,
+    "difficulty": 1,
+    "reviewStatus": "published",
+    "active": true
+  },
+  {
+    "type": "categorization",
+    "prompt": "Clasificá estos clubes por confederación.",
+    "options": {
+      "categories": ["CONMEBOL", "UEFA"],
+      "items": ["Peñarol", "Benfica", "Celtic", "Nacional"]
+    },
+    "correctAnswer": {
+      "Peñarol": "CONMEBOL",
+      "Benfica": "UEFA",
+      "Celtic": "UEFA",
+      "Nacional": "CONMEBOL"
+    },
+    "category": "Clubes",
+    "competition": null,
+    "knowledgeArea": "Confederaciones",
+    "tier": 2,
+    "difficulty": 2,
+    "reviewStatus": "published",
+    "active": true
+  }
+]

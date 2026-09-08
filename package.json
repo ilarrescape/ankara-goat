@@ -1,0 +1,43 @@
+{
+  "name": "ankara-goat",
+  "version": "0.3.0",
+  "description": "Juego multijugador online de Oca + trivia futbolera",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test tests/*.test.js",
+    "seed": "node scripts/seed-demo.js",
+    "migrate": "node scripts/migrate.js",
+    "validate:questions": "node scripts/validate-question-bank.js",
+    "load:seed": "node load-tests/seed-load-data.js",
+    "load:simulate": "node load-tests/socket-simulator.js",
+    "load:cleanup": "node load-tests/cleanup-load-data.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@socket.io/redis-adapter": "^8.0.0",
+    "bcryptjs": "^3.0.2",
+    "bullmq": "^6.3.4",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.0",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "mysql2": "^3.14.4",
+    "sequelize": "^6.37.7",
+    "socket.io": "^4.8.1",
+    "umzug": "^3.8.2",
+    "csv-parse": "^6.1.0"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}

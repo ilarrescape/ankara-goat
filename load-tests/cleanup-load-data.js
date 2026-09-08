@@ -1,0 +1,2 @@
+require('dotenv').config();const {Op}=require('sequelize');const {sequelize,User,Game,Question}=require('../src/models');
+(async()=>{if(process.env.LOAD_TEST_CONFIRM!=='YES')throw new Error('Definí LOAD_TEST_CONFIRM=YES.');await sequelize.authenticate();await Game.destroy({where:{name:{[Op.like]:'[LOADTEST]%'}}});await User.destroy({where:{username:{[Op.like]:'load_%'}}});await Question.destroy({where:{category:'LOADTEST'}});console.log('Datos LOADTEST eliminados.');await sequelize.close()})().catch(e=>{console.error(e);process.exit(1)});
