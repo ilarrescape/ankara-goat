@@ -46,6 +46,12 @@ app.get('/api/health', async (req, res) => {
   let database = false;
   let redis = !redisEnabled();
   try {
+    console.log("=== CONFIG DB ===");
+    console.log("HOST:", process.env.DB_HOST);
+    console.log("PORT:", process.env.DB_PORT);
+    console.log("USER:", process.env.DB_USER);
+    console.log("DATABASE:", process.env.DB_NAME);
+    console.log("PASSWORD:", process.env.DB_PASSWORD ? "OK" : "NO DEFINIDA");
     await sequelize.query('SELECT 1');
     database = true;
   } catch {}
