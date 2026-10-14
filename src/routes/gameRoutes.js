@@ -1,11 +1,13 @@
 const express = require('express');
-const { Game, Team, User, GameChatMessage, Match } = require('../models');
+const { Op } = require('sequelize');
+const { sequelize, Game, Team, User, GameChatMessage, Match } = require('../models');
 const auth = require('../middleware/auth');
 const { roomCode } = require('../utils/random');
 const { createInitialState } = require('../services/gameEngine');
 const { validateBoardSize } = require('../services/tournamentService');
 const { normalizeMode } = require('../services/questionTiers');
 const { withLockedGame } = require('../services/gameStore');
+const { ensureShareCode } = require('../services/publicShareService');
 
 const router = express.Router();
 router.use(auth);
@@ -38,7 +40,7 @@ router.post('/', async (req, res, next) => {
       phase: 'lobby',
       players: [player],
       organizerId: req.user.id,
-      settings: { questionMode: normalizeMode(req.body.questionMode) }
+      settings: { questionMode: normalizeMode(req.body.questionMode), specialCellPercent: Math.max(20, Math.min(35, Number(req.body.specialCellPercent || 25))) }
     };
     const game = await Game.create({
       roomCode: code,
@@ -90,6 +92,49 @@ router.get('/room/:code', async (req, res, next) => {
     const game = await Game.findOne({ where: { roomCode: req.params.code.toUpperCase() } });
     if (!game) return res.status(404).json({ error: 'Sala inexistente.' });
     res.json(game);
+  } catch (e) { next(e); }
+});
+
+
+router.get('/mine/active', async (req, res, next) => {
+  try {
+    const userId = Number(req.user.id);
+    const participation = sequelize.literal(`JSON_CONTAINS(\`state\`, '{\"userId\":${userId}}', '$.players') = 1`);
+    const rows = await Game.findAll({
+      where: { status: { [Op.in]: ['lobby','running'] }, [Op.and]: participation },
+      order: [['updatedAt','DESC']],
+      limit: 20
+    });
+    res.json(rows.filter(game => {
+      if ((game.state?.archivedByUserIds || []).map(Number).includes(userId)) return false;
+      const player = game.state?.players?.find(p => Number(p.userId) === userId);
+      if (!player) return false;
+      if (game.status === 'running' && (player.active === false || player.forfeitedAt)) return false;
+      return true;
+    }));
+  } catch (e) { next(e); }
+});
+
+router.post('/:id/share', async (req, res, next) => {
+  try {
+    const game = await Game.findByPk(Number(req.params.id));
+    if (!game || game.status !== 'finished') return res.status(404).json({ error:'La partida todavía no tiene un resultado público.' });
+    const belongs = game.state?.players?.some(player => Number(player.userId) === Number(req.user.id));
+    if (!belongs) return res.status(403).json({ error:'No pertenecés a esta partida.' });
+    const shareCode = await ensureShareCode(game);
+    res.json({ shareCode, path:`/share/match/${shareCode}` });
+  } catch (e) { next(e); }
+});
+
+router.post('/:id/archive', async (req, res, next) => {
+  try {
+    const userId = Number(req.user.id);
+    const saved = await withLockedGame(Number(req.params.id), (state, game) => {
+      if (!state.players?.some(p => Number(p.userId) === userId)) throw new Error('No pertenecés a esta partida.');
+      if (!['finished','cancelled'].includes(game.status)) throw new Error('Sólo se puede archivar una partida terminada.');
+      state.archivedByUserIds = [...new Set([...(state.archivedByUserIds || []).map(Number), userId])];
+    });
+    res.json({ ok: true, gameId: saved.game.id });
   } catch (e) { next(e); }
 });
 

@@ -6,6 +6,7 @@ const auth = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimits');
 const { POLICY_VERSION, publicPolicy } = require('../services/moderationPolicy');
 const { validateTeamName } = require('../services/contentModeration');
+const { applyEloDecayForUser } = require('../services/eloService');
 
 const router = express.Router();
 
@@ -47,6 +48,7 @@ router.post('/login', authLimiter, async (req, res, next) => {
     const user = await User.findOne({ where: { email: String(email || '').trim().toLowerCase() }, include: Team });
     if (!user || !(await bcrypt.compare(password || '', user.passwordHash))) return res.status(401).json({ error: 'Credenciales incorrectas.' });
     if (user.accountStatus === 'suspended') return res.status(403).json({ error: 'La cuenta está suspendida por moderación.' });
+    await applyEloDecayForUser(user);
     user.lastSeenAt = new Date();
     await user.save();
     res.json({ token: tokenFor(user), user: { id: user.id, username: user.username, email: user.email, role: user.role, eloRating: user.eloRating, xp: user.xp, level: user.level }, team: user.Team });
@@ -55,7 +57,8 @@ router.post('/login', authLimiter, async (req, res, next) => {
 
 router.get('/me', auth, async (req, res, next) => {
   try {
-    const user = await User.findByPk(req.user.id, { attributes: ['id','username','email','role','eloRating','xp','level','moderationPolicyVersion','moderationPolicyAcceptedAt','chatMutedUntil','accountStatus'], include: Team });
+    let user = await User.findByPk(req.user.id, { attributes: ['id','username','email','role','eloRating','xp','level','moderationPolicyVersion','moderationPolicyAcceptedAt','chatMutedUntil','accountStatus','lastRankedGameAt','lastEloDecayAt'], include: Team });
+    if(user){await applyEloDecayForUser(user);}
     res.json(user);
   } catch (e) { next(e); }
 });

@@ -1,9 +1,17 @@
 const { sequelize, Game, User, GameQuestion, PlayerGameStat, Tournament, Match } = require('../models');
 const { sharedBoardPoints } = require('./tournamentService');
+const { ELO_MIN } = require('./eloService');
+
+function isAnsweredCorrectly(value) {
+  return value === true || value === 1 || value === '1' || value === 'true';
+}
 
 function rankingOrder(players) {
   const finishers = players.filter(p => p.finishOrder != null).sort((a,b) => a.finishOrder - b.finishOrder);
-  const eliminated = players.filter(p => p.finishOrder == null).sort((a,b) => (b.eliminatedAtTurn || 0) - (a.eliminatedAtTurn || 0));
+  const eliminated = players.filter(p => p.finishOrder == null).sort((a,b) =>
+    (b.eliminatedAtTurn || 0) - (a.eliminatedAtTurn || 0)
+    || (b.forfeitedAt || 0) - (a.forfeitedAt || 0)
+  );
   return [...finishers, ...eliminated].map((p, i) => ({ ...p, resolvedPosition: i + 1 }));
 }
 
@@ -43,20 +51,22 @@ async function finalizeGameStats(gameId) {
       const user = byId.get(p.userId);
       if (!user) continue;
       const mine = answers.filter(a => a.answeredByUserId === p.userId);
-      const correct = mine.filter(a => a.answeredCorrectly === true).length;
+      const correct = mine.filter(a => isAnsweredCorrectly(a.answeredCorrectly)).length;
       const xpEarned = mine.reduce((sum, a) => {
-        const ok = a.answeredCorrectly === true;
+        const ok = isAnsweredCorrectly(a.answeredCorrectly);
         const base = ok ? 10 : 2;
         return sum + base + (ok ? Number(a.difficultySnapshot || 1) * 2 + Number(a.tierSnapshot || 1) * 3 : 0);
       }, 0);
       const eloBefore = user.eloRating;
-      const eloAfter = Math.max(100, eloBefore + (changes.get(p.userId) || 0));
+      const eloAfter = Math.max(ELO_MIN, eloBefore + (changes.get(p.userId) || 0));
       user.eloRating = eloAfter;
+      user.lastRankedGameAt = new Date();
+      user.lastEloDecayAt = null;
       await user.save({ transaction });
 
       let tournamentPoints = 0;
-      if (tournament?.format === 'shared_board_league') tournamentPoints = sharedBoardPoints(ordered.length, p.resolvedPosition);
-      else if (tournament && ['league_1v1','group_knockout'].includes(tournament.format) && ['league','group'].includes(match?.stage)) tournamentPoints = p.resolvedPosition === 1 ? 3 : 0;
+      if (tournament && ['shared_board_league','group_knockout'].includes(tournament.format) && ordered.length > 2 && ['shared_league','group'].includes(match?.stage)) tournamentPoints = sharedBoardPoints(ordered.length, p.resolvedPosition);
+      else if (tournament && ['league_1v1','group_knockout'].includes(tournament.format) && ['league','group'].includes(match?.stage)) tournamentPoints = p.resolvedPosition === 1 ? 2 : 0;
 
       await PlayerGameStat.create({
         gameId,

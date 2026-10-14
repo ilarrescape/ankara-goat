@@ -1,0 +1,5 @@
+const test=require('node:test');const assert=require('node:assert/strict');const {latestActivity,tournamentManagementPolicy}=require('../src/services/tournamentManagementService');
+test('sin actividad se puede editar y eliminar',()=>{const p=tournamentManagementPolicy({status:'open'});assert.equal(p.canEdit,true);assert.equal(p.canDelete,true);assert.equal(p.canSuspend,false)});
+test('partida activa bloquea edición, eliminación y suspensión',()=>{const p=tournamentManagementPolicy({status:'running',hasActiveGame:true});assert.equal(p.canEdit,false);assert.equal(p.canDelete,false);assert.equal(p.canSuspend,false)});
+test('con partidos jugados sólo se puede suspender',()=>{const p=tournamentManagementPolicy({status:'running',hasPlayedMatches:true});assert.equal(p.canEdit,false);assert.equal(p.canDelete,false);assert.equal(p.canSuspend,true)});
+test('latestActivity devuelve la fecha más reciente',()=>{assert.equal(latestActivity(new Date('2026-09-01'),new Date('2026-09-03')).toISOString(),'2026-09-03T00:00:00.000Z')});

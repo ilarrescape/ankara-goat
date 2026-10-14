@@ -20,6 +20,10 @@ const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const moderationRoutes = require('./routes/moderationRoutes');
+const rulesRoutes = require('./routes/rulesRoutes');
+const publicShareRoutes = require('./routes/publicShareRoutes');
+const { getPublicMatchByCode, getPublicTournamentByCode } = require('./services/publicShareService');
+const { applyEloDecayBatch } = require('./services/eloService');
 const gameSocket = require('./sockets/gameSocket');
 
 if (!process.env.JWT_SECRET) {
@@ -42,6 +46,38 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+function escapeMeta(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+}
+
+async function renderPublicSharePage(req, res, kind) {
+  const code = req.params.code;
+  const data = kind === 'match' ? await getPublicMatchByCode(code) : await getPublicTournamentByCode(code);
+  if (!data) return res.status(404).sendFile(path.join(__dirname, '..', 'public', 'share.html'));
+  const winner = kind === 'match' ? data.players?.[0]?.team?.name : data.podium?.[0]?.team?.name;
+  const title = kind === 'match'
+    ? `${winner || 'Resultado'} · ${data.name} · AnkaraGOAT`
+    : `${winner ? `${winner} campeón · ` : ''}${data.name} · AnkaraGOAT`;
+  const description = kind === 'match'
+    ? `Mirá las posiciones y estadísticas finales de ${data.name} en AnkaraGOAT.`
+    : `Mirá la tabla, los enfrentamientos y las estadísticas de ${data.name} en AnkaraGOAT.`;
+  const forwardedProto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+  const origin = `${forwardedProto}://${req.get('host')}`;
+  const url = `${origin}${req.originalUrl}`;
+  const image = `${origin}/assets/images/logo-ankara-goat.png`;
+  let html = await require('fs').promises.readFile(path.join(__dirname, '..', 'public', 'share.html'), 'utf8');
+  html = html
+    .replaceAll('__SHARE_TITLE__', escapeMeta(title))
+    .replaceAll('__SHARE_DESCRIPTION__', escapeMeta(description))
+    .replaceAll('__SHARE_URL__', escapeMeta(url))
+    .replaceAll('__SHARE_IMAGE__', escapeMeta(image));
+  res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+  return res.type('html').send(html);
+}
+
+app.get('/share/match/:code', (req, res, next) => renderPublicSharePage(req, res, 'match').catch(next));
+app.get('/share/tournament/:code', (req, res, next) => renderPublicSharePage(req, res, 'tournament').catch(next));
 app.get('/api/health', async (req, res) => {
   let database = false;
   let redis = !redisEnabled();
@@ -66,6 +102,7 @@ app.get('/api/health', async (req, res) => {
   const ok = database && redis;
   res.status(ok ? 200 : 503).json({ ok, app: 'Ankara GOAT', version: '0.3.0', database, redis, replicaId: process.env.RAILWAY_REPLICA_ID || null, replicaRegion: process.env.RAILWAY_REPLICA_REGION || null, time: new Date().toISOString() });
 });
+app.use('/api/public', publicShareRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/tournaments', tournamentRoutes);
@@ -76,6 +113,7 @@ app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/moderation', moderationRoutes);
+app.use('/api/rules', rulesRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -104,6 +142,8 @@ const port = Number(process.env.PORT || 3000);
     if (shouldAutoMigrate) await runMigrations();
     await configureRedisAdapter();
     gameSocket(io);
+    applyEloDecayBatch().catch(err=>console.error('[elo decay]',err.message));
+    setInterval(()=>applyEloDecayBatch().catch(err=>console.error('[elo decay]',err.message)), 60*60*1000).unref();
     server.listen(port, '0.0.0.0', () => console.log(`Ankara GOAT escuchando en puerto ${port}`));
   } catch (e) {
     console.error('No se pudo iniciar:', e);

@@ -11,6 +11,8 @@ const User = sequelize.define('User', {
   xp: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
   level: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 1 },
   lastSeenAt: { type: DataTypes.DATE, allowNull: true },
+  lastRankedGameAt: { type: DataTypes.DATE, allowNull: true },
+  lastEloDecayAt: { type: DataTypes.DATE, allowNull: true },
   moderationPolicyVersion: { type: DataTypes.STRING(20), allowNull: true },
   moderationPolicyAcceptedAt: { type: DataTypes.DATE, allowNull: true },
   chatMutedUntil: { type: DataTypes.DATE, allowNull: true },
@@ -34,7 +36,9 @@ const Tournament = sequelize.define('Tournament', {
   id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
   name: { type: DataTypes.STRING(100), allowNull: false },
   format: { type: DataTypes.ENUM('league_1v1','shared_board_league','group_knockout','cup'), allowNull: false },
-  status: { type: DataTypes.ENUM('draft','open','running','finished','cancelled'), defaultValue: 'open' },
+  status: { type: DataTypes.ENUM('draft','open','running','finished','suspended','cancelled'), defaultValue: 'open' },
+  accessCode: { type: DataTypes.STRING(12), allowNull: true, unique: true },
+  shareCode: { type: DataTypes.STRING(24), allowNull: true, unique: true },
   boardSize: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 40 },
   settings: { type: DataTypes.JSON, allowNull: false, defaultValue: {} }
 });
@@ -52,7 +56,9 @@ const TournamentParticipant = sequelize.define('TournamentParticipant', {
   correctAnswers: { type: DataTypes.INTEGER.UNSIGNED, defaultValue: 0 },
   incorrectAnswers: { type: DataTypes.INTEGER.UNSIGNED, defaultValue: 0 },
   tiebreakRank: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
-  eliminated: { type: DataTypes.BOOLEAN, defaultValue: false }
+  eliminated: { type: DataTypes.BOOLEAN, defaultValue: false },
+  eliminationReason: { type: DataTypes.STRING(60), allowNull: true },
+  finalPosition: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true }
 }, { indexes: [{ unique: true, fields: ['tournament_id', 'user_id'] }] });
 
 const TournamentInvitation = sequelize.define('TournamentInvitation', {
@@ -77,6 +83,7 @@ const Match = sequelize.define('Match', {
 const Game = sequelize.define('Game', {
   id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
   roomCode: { type: DataTypes.STRING(12), allowNull: false, unique: true },
+  shareCode: { type: DataTypes.STRING(24), allowNull: true, unique: true },
   name: { type: DataTypes.STRING(100), allowNull: false },
   status: { type: DataTypes.ENUM('lobby','running','finished','cancelled'), defaultValue: 'lobby' },
   boardSize: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
@@ -100,7 +107,11 @@ const Question = sequelize.define('Question', {
   reviewStatus: { type: DataTypes.ENUM('draft','review','published','rejected'), allowNull: false, defaultValue: 'published' },
   version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 1 },
   reviewedAt: { type: DataTypes.DATE, allowNull: true },
-  active: { type: DataTypes.BOOLEAN, defaultValue: true }
+  active: { type: DataTypes.BOOLEAN, defaultValue: true },
+  lastUsedAt: { type: DataTypes.DATE, allowNull: true },
+  timesShown: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  answerCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  correctCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 }
 }, { indexes: [{ fields: ['active', 'review_status', 'tier'] }, { fields: ['knowledge_area'] }] });
 
 const GameQuestion = sequelize.define('GameQuestion', {
@@ -160,8 +171,30 @@ const StandingsTiebreak = sequelize.define('StandingsTiebreak', {
   signature: { type: DataTypes.STRING(200), allowNull: false },
   userIds: { type: DataTypes.JSON, allowNull: false },
   resolvedOrder: { type: DataTypes.JSON, allowNull: true },
-  status: { type: DataTypes.ENUM('pending','running','resolved','cancelled'), allowNull: false, defaultValue: 'pending' }
+  status: { type: DataTypes.ENUM('pending','running','resolved','cancelled'), allowNull: false, defaultValue: 'pending' },
+  planKey: { type: DataTypes.STRING(240), allowNull: true },
+  advanceCount: { type: DataTypes.TINYINT.UNSIGNED, allowNull: true },
+  slotsAvailable: { type: DataTypes.TINYINT.UNSIGNED, allowNull: true },
+  fixedUserIds: { type: DataTypes.JSON, allowNull: true },
+  excludedUserIds: { type: DataTypes.JSON, allowNull: true },
+  planMode: { type: DataTypes.STRING(40), allowNull: true }
 }, { indexes: [{ unique: true, fields: ['tournament_id','scope','group_code','signature'] }] });
+
+
+const UserTrophy = sequelize.define('UserTrophy', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  trophyType: { type: DataTypes.ENUM('copa_bronce','copa_plata','copa_oro','liga_bronce','liga_plata','liga_oro'), allowNull: false },
+  tournamentName: { type: DataTypes.STRING(100), allowNull: false },
+  awardedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
+}, { indexes: [{ unique: true, fields: ['user_id','tournament_id'] }] });
+
+const RouletteEvent = sequelize.define('RouletteEvent', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  effect: { type: DataTypes.STRING(40), allowNull: false },
+  amount: { type: DataTypes.INTEGER, allowNull: true },
+  turnNo: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+  metadata: { type: DataTypes.JSON, allowNull: true }
+}, { indexes: [{ fields: ['game_id','created_at'] }, { fields: ['effect'] }] });
 
 const ModerationReport = sequelize.define('ModerationReport', {
   id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
@@ -235,6 +268,19 @@ Tournament.hasMany(StandingsTiebreak, { foreignKey: 'tournamentId', onDelete: 'C
 StandingsTiebreak.belongsTo(Tournament, { foreignKey: 'tournamentId' });
 StandingsTiebreak.belongsTo(Game, { foreignKey: 'gameId' });
 
+
+User.hasMany(UserTrophy, { foreignKey: 'userId', onDelete: 'CASCADE' });
+UserTrophy.belongsTo(User, { foreignKey: 'userId' });
+Tournament.hasMany(UserTrophy, { foreignKey: 'tournamentId', onDelete: 'CASCADE' });
+UserTrophy.belongsTo(Tournament, { foreignKey: 'tournamentId' });
+
+Game.hasMany(RouletteEvent, { foreignKey: 'gameId', onDelete: 'CASCADE' });
+RouletteEvent.belongsTo(Game, { foreignKey: 'gameId' });
+User.hasMany(RouletteEvent, { as: 'rouletteEvents', foreignKey: 'userId', onDelete: 'CASCADE' });
+RouletteEvent.belongsTo(User, { as: 'player', foreignKey: 'userId' });
+User.hasMany(RouletteEvent, { as: 'rouletteTargetEvents', foreignKey: 'targetUserId', onDelete: 'SET NULL' });
+RouletteEvent.belongsTo(User, { as: 'target', foreignKey: 'targetUserId' });
+
 ModerationReport.belongsTo(User, { as: 'reporter', foreignKey: 'reporterId' });
 ModerationReport.belongsTo(User, { as: 'resolver', foreignKey: 'resolvedById' });
 ModerationAction.belongsTo(User, { as: 'moderator', foreignKey: 'moderatorId' });
@@ -243,5 +289,5 @@ ModerationAction.belongsTo(User, { as: 'targetUser', foreignKey: 'targetUserId' 
 module.exports = {
   sequelize, User, Team, Tournament, TournamentParticipant, TournamentInvitation,
   Match, Game, Question, GameQuestion, QuestionReport, UserKnowledgeStat,
-  PlayerGameStat, GameChatMessage, StandingsTiebreak, ModerationReport, ModerationAction
+  PlayerGameStat, GameChatMessage, StandingsTiebreak, UserTrophy, RouletteEvent, ModerationReport, ModerationAction
 };

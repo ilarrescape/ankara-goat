@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const multer = require('multer');
-const { Question, QuestionReport, User } = require('../models');
+const { Question, QuestionReport, User, RouletteEvent } = require('../models');
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const { inferTier } = require('../services/questionTiers');
@@ -38,6 +38,14 @@ router.get('/question-stats', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+
+router.get('/roulette-stats', async (req,res,next)=>{
+  try{
+    const rows=await RouletteEvent.findAll({attributes:['effect',[require('sequelize').fn('COUNT',require('sequelize').col('id')),'count']],group:['effect'],raw:true});
+    const total=rows.reduce((sum,r)=>sum+Number(r.count||0),0);
+    res.json({total,rows:rows.map(r=>({effect:r.effect,count:Number(r.count||0),percentage:total?Math.round(Number(r.count||0)*10000/total)/100:0}))});
+  }catch(e){next(e);}
+});
 router.post('/questions', async (req, res, next) => {
   try {
     const payload = { ...req.body };

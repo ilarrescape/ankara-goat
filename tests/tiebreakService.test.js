@@ -1,0 +1,7 @@
+const test=require('node:test');const assert=require('node:assert/strict');const {planTiebreak}=require('../src/services/tiebreakService');
+const rows=elos=>elos.map((eloRating,i)=>({userId:i+1,eloRating}));
+test('hasta 8 empatados juegan todos sin corte ELO',()=>{const p=planTiebreak(rows([1500,900,800]),1);assert.equal(p.mode,'single');assert.deepEqual(p.boards[0].userIds,[1,2,3])});
+test('más de 8 con corte inequívoco usa los 8 mejores sólo para acceso',()=>{const p=planTiebreak(rows([1600,1500,1400,1300,1200,1100,1000,900,800,700]),2);assert.equal(p.mode,'elo_cut');assert.equal(p.boards[0].userIds.length,8);assert.deepEqual(p.excludedUserIds,[9,10])});
+test('empate ELO en corte excluye bloque si quedan suficientes jugadores',()=>{const p=planTiebreak(rows([1600,1500,1400,1300,1200,1100,1000,900,900,900]),2);assert.equal(p.mode,'elo_boundary_excluded');assert.equal(p.boards[0].userIds.length,7)});
+test('contingencia activa ronda previa cuando las plazas superan a los claros',()=>{const p=planTiebreak(rows([1600,1500,1400,1300,1200,1100,1000,900,900,900]),8);assert.equal(p.mode,'contingency');assert.equal(p.fixedUserIds.length,7);assert.equal(p.boards[0].advanceCount,1)});
+test('empate absoluto de 16 se divide en tableros previos',()=>{const p=planTiebreak(rows(Array(16).fill(1000)),4);assert.equal(p.mode,'multi_board_contingency');assert.equal(p.boards.length,2);assert.ok(p.boards.every(b=>b.userIds.length===8));assert.equal(p.boards.reduce((a,b)=>a+b.advanceCount,0),4)});

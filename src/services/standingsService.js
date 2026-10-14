@@ -17,6 +17,8 @@ function sortStandings(rows, resolvedOrders = new Map()) {
     if (order) {
       const ai = order.indexOf(Number(a.userId));
       const bi = order.indexOf(Number(b.userId));
+      if (ai !== -1 && bi === -1) return -1;
+      if (ai === -1 && bi !== -1) return 1;
       if (ai !== -1 && bi !== -1 && ai !== bi) return ai - bi;
     }
     return Number(a.seed || Number.MAX_SAFE_INTEGER) - Number(b.seed || Number.MAX_SAFE_INTEGER) || Number(a.userId) - Number(b.userId);
