@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Federaciones · AnkaraGOAT</title>
+  <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/4.0.0/uicons-regular-rounded/css/uicons-regular-rounded.css">
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/federations.css?v=20261111-banner">
+</head>
+<body>
+  <header class="fed-top">
+    <a class="fed-brand" href="/" aria-label="AnkaraGOAT · Inicio"><img src="/assets/images/logo-ankara-goat.png" alt="AnkaraGOAT"></a>
+    <span>Federaciones</span>
+    <div class="audio-controls fed-audio-controls" aria-label="Ambientación de cancha"><button type="button" class="audio-control-btn" id="audioVolumeDown" aria-label="Bajar volumen">−</button><button type="button" class="audio-control-btn audio-toggle" id="audioToggle" aria-label="Pausar música">▶</button><button type="button" class="audio-control-btn" id="audioVolumeUp" aria-label="Subir volumen">+</button><span class="audio-volume-value" id="fedAudioVolume">35%</span></div>
+    <a href="/" class="fed-button ghost">← Volver al vestuario</a>
+  </header>
+  <div class="fed-shell">
+    <nav class="fed-nav" aria-label="Navegación de Federaciones">
+      <button data-nav="mine"><i class="fi fi-rr-users"></i> Mis Federaciones</button>
+      <button data-nav="explore"><i class="fi fi-rr-search"></i> Explorar</button>
+      <button data-nav="ranking"><i class="fi fi-rr-trophy"></i> Ranking</button>
+      <button data-nav="create" class="fed-button primary"><i class="fi fi-rr-plus"></i> Crear Federación</button>
+      <p class="fed-nav-tip">Entrá a tu comunidad, estudiá, competí y construí su historia.</p>
+    </nav>
+    <main id="fedMain" class="fed-main" aria-live="polite">
+      <div class="fed-loading">Cargando Federaciones…</div>
+    </main>
+  </div>
+  <div id="fedToast" role="status" aria-live="polite"></div>
+  <script src="/js/federations-audio.js?v=20261108"></script>
+  <script src="/js/federations.js?v=20261111-banner"></script>
+</body>
+</html>

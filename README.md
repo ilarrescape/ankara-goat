@@ -682,7 +682,7 @@ Confirmá antes que `.env` esté ignorado por `.gitignore`.
 El repositorio ya incluye `railway.json` con:
 
 ```text
-pre-deploy: npm run migrate
+pre-deploy: DESACTIVADO (migraciones sujetas a validación manual)
 start: npm start
 healthcheck: /api/health
 restart: ON_FAILURE
@@ -690,7 +690,7 @@ overlap: 20 s
 draining: 20 s
 ```
 
-Esto es importante cuando haya múltiples réplicas: las migraciones ocurren en el pre-deploy y no en paralelo dentro de cada proceso Node.
+En Federaciones V1 las migraciones **no se ejecutan automáticamente**. Validá primero el esquema en una copia de base de datos. Para el procedimiento completo, consultá `RELEASE_FEDERACIONES_V1.md`.
 
 ## 12.3 Agregar MySQL
 
@@ -1272,7 +1272,7 @@ Comando:
 npm run migrate
 ```
 
-En Railway, `railway.json` las ejecuta como **preDeployCommand**.
+En Federaciones V1, `railway.json` **no incluye `preDeployCommand`**. Ejecutalas manualmente sólo después de validar y respaldar la base de datos.
 
 En producción:
 

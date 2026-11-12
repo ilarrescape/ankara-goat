@@ -110,8 +110,7 @@ function standingRow(row, position) {
 
 async function getPublicTournamentByCode(code) {
   const cacheKey=`share:tournament:${String(code||'')}`;
-  const cached=await readCache(cacheKey);
-  if(cached)return cached;
+  // No se sirve un trofeo almacenado en caché después de que el organizador lo edita.
   const tournament = await Tournament.findOne({ where: { shareCode: String(code || '') } });
   if (!tournament || ['draft', 'open', 'cancelled'].includes(tournament.status)) return null;
 
@@ -145,7 +144,7 @@ async function getPublicTournamentByCode(code) {
     stage: match.stage,
     groupCode: match.groupCode || null,
     status: match.status,
-    participants: (match.participants || []).map(userId => ({ userId:Number(userId), team:teamByUser.get(Number(userId)) || publicTeam(null) })),
+    participants: (match.participants || []).map(userId => ({ userId:Number(userId), team:teamByUser.get(Number(userId)) || publicTeam(null), finishPosition:(match.result?.finishOrder||[]).find(row=>Number(row.userId)===Number(userId))?.position??null })),
     finishOrder: (match.result?.finishOrder || []).map(row => ({
       position: Number(row.position || 0),
       userId: Number(row.userId),
@@ -172,13 +171,12 @@ async function getPublicTournamentByCode(code) {
     statusLabel: STATUS_LABELS[tournament.status] || tournament.status,
     participantCount: participants.length,
     trophyTier: tier,
-    trophyAsset: tournament.status === 'finished' ? trophyAsset(tournament.format, tier) : null,
+    trophyAsset: tournament.trophyImageUrl || (tournament.status === 'finished' ? trophyAsset(tournament.format, tier) : null),
     groups,
     matches: publicMatches,
     podium,
     updatedAt: tournament.updatedAt
   };
-  await writeCache(cacheKey,payload,tournament.status==='finished'?300:15);
   return payload;
 }
 

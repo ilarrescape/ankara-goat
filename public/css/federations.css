@@ -1,0 +1,288 @@
+:root{color-scheme:dark;font-family:"M PLUS Rounded 1c",system-ui,sans-serif;color:#e9f3e6;background:#09120f;--surface:#14241c;--line:#365242;--muted:#a2baa9;--accent:#bded6c}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(#07160fd4,#07160fe0),url('/assets/images/background-ankara-goat.png') center center/cover fixed no-repeat}button,input,textarea,select{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer}a{color:#c5ef8c;text-decoration:none}a:hover{text-decoration:underline}
+.fed-top{height:74px;border-bottom:1px solid #31543c;background:#07140fdd;display:flex;align-items:center;justify-content:space-between;gap:15px;padding:10px clamp(16px,3vw,44px);position:sticky;top:0;z-index:10;backdrop-filter:blur(10px)}
+.fed-brand{display:flex;align-items:center;gap:8px;color:#eff7e9;font-weight:900;letter-spacing:-.7px;font-size:20px}.fed-brand img{width:48px;height:44px;object-fit:contain}.fed-brand span{color:#bdea6a}
+.fed-shell{max-width:1600px;margin:auto;display:grid;grid-template-columns:235px minmax(0,1fr);gap:26px;padding:30px clamp(16px,3vw,44px)}
+.fed-nav{display:flex;flex-direction:column;gap:7px;position:sticky;top:103px;height:max-content}.fed-nav button{display:flex;gap:11px;align-items:center;text-align:left;background:transparent;border:1px solid transparent;color:#c7d8cc;border-radius:9px;padding:13px}.fed-nav button.active,.fed-nav button:hover{background:#1f3c2c;border-color:#52784d;color:#f0fff0}.fed-nav-tip{color:#8caa93;font-size:12px;line-height:1.65;padding:15px 10px}
+.fed-main{min-width:0}.fed-hero{border:1px solid #4a714c;border-radius:18px;padding:28px;background:linear-gradient(135deg,#25482b,#111f1c 75%);margin-bottom:24px;position:relative;overflow:hidden}.fed-hero:before{content:'';position:absolute;width:340px;height:340px;border:1px solid #9ee06618;border-radius:50%;right:-100px;top:-180px}.fed-hero h1{font-size:clamp(24px,3vw,40px);margin:6px 0 10px;letter-spacing:-1px}.fed-hero p{max-width:720px;color:#c0d9c3;margin:0;line-height:1.55}
+.fed-eyebrow{text-transform:uppercase;letter-spacing:2px;color:#c6f18d;font-size:11px;font-weight:900}.fed-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.fed-between{justify-content:space-between}.fed-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:16px}.fed-card{border:1px solid #345542;background:#15261ecc;border-radius:14px;padding:19px;min-width:0}.fed-card h3{margin:7px 0;font-size:19px}.fed-card p{color:#b0c2b3;line-height:1.5;font-size:14px}.fed-card small,.fed-subtle{color:var(--muted)}.fed-card:hover{border-color:#6b9b61}.fed-badge{display:inline-flex;gap:5px;align-items:center;border:1px solid #547750;color:#d9eda6;font-size:12px;border-radius:25px;padding:5px 9px}.fed-muted{color:var(--muted)}
+.fed-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:9px;border:1px solid #5b8054;background:#264734;color:#e8f3df;padding:10px 15px;font-weight:750;min-height:40px;cursor:pointer}.fed-button:hover{background:#345b3e;text-decoration:none}.fed-button.primary{background:#b4ec69;border-color:#b4ec69;color:#0c2313}.fed-button.primary:hover{background:#d4ff86}.fed-button.ghost{background:transparent}.fed-button:disabled{opacity:.5;cursor:not-allowed}
+.fed-form{display:grid;gap:15px}.fed-form label{display:grid;gap:7px;font-size:13px;color:#cddccf;font-weight:650}.fed-form input,.fed-form textarea,.fed-form select,.fed-filter{width:100%;border:1px solid #4a684f;background:#0b1b12;color:#edf9e9;border-radius:8px;padding:11px;outline-color:#b7ed79}.fed-form textarea{min-height:100px;resize:vertical}.fed-check{display:flex!important;flex-direction:row;align-items:center}.fed-check input{width:auto}.fed-help{font-size:12px;color:#99b49b}.fed-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}.fed-tabs{display:flex;overflow:auto;gap:7px;margin:12px 0 22px;padding-bottom:6px}.fed-tabs button{white-space:nowrap;background:#172d20;border:1px solid #3b6146;color:#d5e4d3;border-radius:9px;padding:10px 13px;cursor:pointer}.fed-tabs button.active{background:#b0e369;border-color:#b0e369;color:#102615;font-weight:800}
+.fed-banner{min-height:180px;background:linear-gradient(90deg,#1b4931,#163322);border-radius:15px;padding:20px;display:flex;align-items:flex-end;gap:20px;background-position:center;background-size:cover;border:1px solid #50754e;margin-bottom:15px}.fed-crest{width:90px;height:90px;object-fit:cover;border:4px solid #c6eb99;border-radius:18px;background:#1a3121}.fed-title{font-size:29px;font-weight:900;text-shadow:0 2px 8px #08140d}.fed-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:16px 0}.fed-kpi{padding:16px;background:#14241c;border:1px solid #31513d;border-radius:12px}.fed-kpi b{display:block;font-size:28px;color:#cbef8f}.fed-kpi span{font-size:12px;color:#a4bda8}
+.fed-list{display:grid;gap:10px}.fed-item{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;border:1px solid #344e3c;background:#12221a;border-radius:11px;padding:13px 15px}.fed-item strong{display:block}.fed-item small{display:block;color:var(--muted);margin-top:4px}.fed-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:#335c36;color:#daf3ab;font-size:22px}.fed-empty{padding:35px;text-align:center;color:#acc1ac;border:1px dashed #48644a;border-radius:14px;background:#101d17}.fed-status{border-radius:12px;padding:5px 9px;background:#244e34;color:#d5f8bb;font-size:12px}.fed-status.pending{background:#65502e;color:#ffe3a0}.fed-status.rejected{background:#5a3336;color:#ffb8b8}.fed-section{margin:26px 0 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.fed-section h2{font-size:21px;margin:0}
+.fed-chart{display:grid;gap:8px}.fed-bar-line{display:grid;grid-template-columns:110px 1fr 45px;gap:10px;align-items:center;font-size:12px}.fed-bar{height:13px;background:#243b2d;border-radius:15px;overflow:hidden}.fed-bar span{height:100%;display:block;background:#b5e36e;border-radius:15px}.fed-inline-image{width:39px;height:39px;border-radius:9px;object-fit:cover;background:#253e2b}
+.fed-json{background:#091b11;border:1px solid #355d3f;color:#d4f5c6;padding:12px;border-radius:9px;max-height:290px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:12px}.fed-compact{max-width:800px}.fed-table{width:100%;border-collapse:collapse;font-size:14px}.fed-table th,.fed-table td{border-bottom:1px solid #31493a;padding:11px 8px;text-align:left}.fed-table th{color:#b9d0bc;font-size:12px}.fed-table td:first-child{font-weight:750}
+#fedToast{position:fixed;bottom:20px;right:20px;max-width:420px;padding:15px 20px;background:#263e2f;border:1px solid #9edb73;border-radius:12px;color:#fff;opacity:0;pointer-events:none;transform:translateY(10px);transition:.2s;z-index:20}#fedToast.show{opacity:1;transform:translateY(0)}
+@media(max-width:850px){.fed-shell{grid-template-columns:1fr;padding:14px}.fed-nav{position:static;display:flex;flex-direction:row;overflow:auto}.fed-nav button{flex-shrink:0}.fed-nav-tip{display:none}.fed-top>span{display:none}.fed-top{height:64px}.fed-cols{grid-template-columns:1fr}.fed-hero{padding:19px}.fed-banner{min-height:150px}.fed-crest{width:68px;height:68px}.fed-title{font-size:22px}}
+#federationGroupSettings{padding:18px;background:#10241a;border:1px solid #3d6047;border-radius:10px;display:grid;gap:14px}
+#federationGroupSettings h3{margin:0}
+#federationGroupSettings[hidden],#fedGroupMatchCountField[hidden]{display:none!important}
+
+/* Refinamientos 2026-11: una identidad visual común, sin frameworks nuevos. */
+button,input,select,textarea{font-family:"M PLUS Rounded 1c",system-ui,sans-serif}
+.fed-ambient-player{width:clamp(160px,23vw,270px);height:34px;flex-shrink:1;min-width:140px;filter:sepia(.3) saturate(.7)}
+.fed-top>span{margin-left:auto;margin-right:auto}
+.fed-notification-dot{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:99px;color:#142513;background:#cbf375;font-size:11px;font-weight:900}
+.fed-notification-dot[hidden]{display:none}
+.fed-tabs{gap:9px;padding:3px 0 12px;margin-bottom:17px;scrollbar-width:thin}
+.fed-tabs button{--tab-color:#91cfb8;display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:10px 15px;border:1px solid color-mix(in srgb,var(--tab-color) 52%,#203b2d);background:color-mix(in srgb,var(--tab-color) 12%,#071b12);color:#e9f9ed;font-weight:750;transition:background .18s,border-color .18s}
+.fed-tabs button:hover{background:color-mix(in srgb,var(--tab-color) 23%,#10251c)}
+.fed-tabs button.active{background:var(--tab-color);border-color:var(--tab-color);color:#0b1c13}
+.fed-tabs button:nth-child(10n + 1){--tab-color:#b6ed76}
+.fed-tabs button:nth-child(10n + 2){--tab-color:#76d5b2}
+.fed-tabs button:nth-child(10n + 3){--tab-color:#75c9ef}
+.fed-tabs button:nth-child(10n + 4){--tab-color:#b8a4fc}
+.fed-tabs button:nth-child(10n + 5){--tab-color:#f1bf74}
+.fed-tabs button:nth-child(10n + 6){--tab-color:#ecb7de}
+.fed-tabs button:nth-child(10n + 7){--tab-color:#f7d86c}
+.fed-tabs button:nth-child(10n + 8){--tab-color:#85e4e0}
+.fed-tabs button:nth-child(10n + 9){--tab-color:#f9a897}
+.fed-tabs button:nth-child(10n + 10){--tab-color:#b8cbf7}
+.fed-subtabs{display:flex;gap:10px;margin:15px 0 21px;overflow-x:auto;padding-bottom:8px}
+.fed-subtabs button{border:1px solid #44654a;background:#10251c;color:#d5e8d4;border-radius:10px;padding:11px 17px;cursor:pointer;font-weight:800;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.fed-subtabs button.active{background:#b9ed75;color:#102312;border-color:#b9ed75}
+.fed-subpanel{min-width:0;animation:fedFade .18s ease}
+.fed-subpanel[hidden]{display:none!important}
+@keyframes fedFade{from{opacity:.7}to{opacity:1}}
+.fed-actions{display:inline-flex;align-items:center;justify-content:flex-end;gap:15px;flex-wrap:wrap;margin-left:auto}
+.fed-tourney-actions .fed-button{min-width:102px}
+.fed-button.join{border-color:#7cceaa;color:#b7f4dc;background:#163b32}
+.fed-button.study{border-color:#93bbe8;color:#bbd9fa;background:#1a334b}
+.fed-button.open{border-color:#c5f675;color:#18351a;background:#c4f176}
+.fed-button.danger{border-color:#ad6773;color:#ffd4d7;background:#52252e}
+.fed-tourney-actions .fed-button:hover{filter:brightness(1.2)}
+.fed-challenge-form{margin-bottom:30px}
+.fed-stat-kpis .fed-kpi{--k:#c0ed8b;border-color:color-mix(in srgb,var(--k) 50%,#294735);background:color-mix(in srgb,var(--k) 9%,#10261d)}
+.fed-stat-kpis .fed-kpi b{color:var(--k)}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 1){--k:#b3ee79}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 2){--k:#64daca}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 3){--k:#88baff}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 4){--k:#d2a7ff}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 5){--k:#ffbd8b}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 6){--k:#f9dc78}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 7){--k:#ff9bc4}
+.fed-feed-list{margin-top:12px}
+.fed-feed-event{--event-color:#9ccbc1;align-items:flex-start;gap:12px}
+.fed-feed-event[data-event-kind="tournament"],.fed-feed-event[data-event-kind="challenge_result"]{--event-color:#f8d278}
+.fed-feed-event[data-event-kind="announcement"]{--event-color:#b8a1f6}
+.fed-feed-event[data-event-kind="member_joined"],.fed-feed-event[data-event-kind="achievement"]{--event-color:#85deb8}
+.fed-feed-event[data-event-kind="knowledge"]{--event-color:#80bdff}
+.fed-feed-event[data-event-kind="challenge"],.fed-feed-event[data-event-kind="challenge_sent"]{--event-color:#efa9a4}
+.fed-feed-event[data-event-kind="schedule"],.fed-feed-event[data-event-kind="reschedule"]{--event-color:#ffc68d}
+.fed-event-icon{display:grid;place-items:center;flex:0 0 44px;height:44px;border-radius:12px;font-size:20px;color:var(--event-color);background:color-mix(in srgb,var(--event-color) 16%,#14251c);border:1px solid color-mix(in srgb,var(--event-color) 40%,#20392d)}
+.fed-event-body{flex:1;min-width:180px}
+.fed-home-feed{padding-top:16px;margin-top:30px;border-top:1px solid #385744}
+.fed-prompt-label{display:block;margin:15px 0 6px;font-size:13px;font-weight:800}
+.fed-prompt-editor{display:block;width:100%;min-height:180px;resize:vertical;border:1px solid #527258;background:#0a1b13;color:#e0f1dd;border-radius:10px;padding:12px;line-height:1.6;font-family:"M PLUS Rounded 1c",sans-serif;font-size:13px}
+.fed-cols-three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.fed-notice-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;margin-bottom:10px;border:1px solid #476e52;background:#192e22;border-radius:12px}
+.fed-notice-check{display:flex;align-items:center;gap:14px;cursor:pointer;font-weight:750;min-width:0;flex:1}
+.fed-notice-check input{accent-color:#b7ee72;flex:0 0 19px;width:19px;height:19px}
+.fed-notice-check span{min-width:0}
+.fed-notice-row{padding:15px}
+@media(max-width:850px){.fed-ambient-player{width:150px;min-width:125px}.fed-top{gap:7px}.fed-brand{font-size:14px}.fed-brand img{width:33px}.fed-tabs button{padding:9px 12px}.fed-cols-three{grid-template-columns:1fr}.fed-actions{justify-content:flex-start}.fed-tourney-actions{width:100%}}
+@media(max-width:600px){
+  .fed-top{height:auto;min-height:64px;flex-wrap:wrap;align-items:center;padding:8px 12px;gap:6px}
+  .fed-top .fed-brand{font-size:13px;min-width:0;white-space:nowrap}
+  .fed-top .fed-button.ghost{margin-left:auto;white-space:nowrap;font-size:11px;min-height:34px;padding:5px 8px}
+  .fed-top .fed-ambient-player{order:3;flex:1 1 100%;width:100%;height:30px;min-width:0}
+}
+
+
+/* Mejoras especificadas 2026-11-06: identidad del vestuario + pestañas tipo planilla. */
+:root{--fed-gold:#f7c651;--fed-orange:#ffb85a;--fed-line:rgba(91,231,201,.36)}
+.fed-top{height:94px;overflow:visible}
+.fed-brand{font-size:0;position:relative;overflow:visible;flex:0 0 auto;align-self:stretch;justify-content:center}
+.fed-brand img{width:clamp(142px,15vw,190px);height:auto;max-height:107px;object-fit:contain;position:relative;top:-8px;filter:drop-shadow(0 5px 9px rgba(0,0,0,.65))}
+.fed-brand span{display:none}
+.fed-card,.fed-item,.fed-kpi,.fed-hero,.fed-empty,.fed-banner{background-color:rgba(6,22,18,.73);border:1px solid var(--fed-line);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.fed-card{background:linear-gradient(135deg,rgba(9,34,25,.82),rgba(6,22,18,.74))}
+.fed-hero{background:linear-gradient(120deg,rgba(19,62,42,.79),rgba(6,22,18,.81))}
+.fed-item{background-color:rgba(7,26,20,.75)}
+.fed-button.primary,.fed-form button[type="submit"].primary,.fed-nav .fed-button.primary{background:linear-gradient(180deg,#ffd773,#f3b743);border-color:#f7c651;color:#211806;box-shadow:0 3px 8px rgba(0,0,0,.18)}
+.fed-button.primary:hover{background:linear-gradient(180deg,#ffe493,#ffcd5b)}
+.fed-tabs{display:flex;gap:3px;align-items:flex-end;padding:10px 4px 0;margin-bottom:20px;border-bottom:2px solid rgba(131,208,164,.4);overflow-x:auto;scrollbar-width:thin}
+.fed-tabs button{min-height:44px;min-width:47px;flex:0 0 auto;gap:0;align-items:center;justify-content:center;position:relative;border-radius:13px 13px 0 0;border:1px solid color-mix(in srgb,var(--tab-color) 48%,#183326);border-bottom:0;background:color-mix(in srgb,var(--tab-color) 22%,#0b2018);padding:11px 13px;transition:background .2s,border-color .2s}
+.fed-tabs button .fi{font-size:17px;line-height:1;flex:0 0 auto}
+.fed-tab-name{display:inline-block;white-space:nowrap;max-width:0;opacity:0;overflow:hidden;transition:max-width .25s ease,opacity .17s ease,margin-left .2s ease;line-height:1.25}
+.fed-tabs button.active .fed-tab-name,.fed-tabs button:hover .fed-tab-name,.fed-tabs button:focus-visible .fed-tab-name{max-width:190px;opacity:1;margin-left:9px}
+.fed-tabs button.active,.fed-tabs button:hover{background:color-mix(in srgb,var(--tab-color) 36%,#10291d);color:#f5fff7}
+.fed-tabs button.active{box-shadow:inset 0 3px var(--tab-color);border-color:var(--tab-color);font-weight:900}
+.fed-tabs button:nth-child(10n + 1){--tab-color:#ffa94e}
+.fed-tabs button:nth-child(10n + 5){--tab-color:#b7eb72}
+.fed-tabs button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.fed-feed-event{background:color-mix(in srgb,var(--event-color) 12%,rgba(7,22,18,.87));border-left:4px solid var(--event-color);border-top-color:color-mix(in srgb,var(--event-color) 45%,#203e30);border-right-color:color-mix(in srgb,var(--event-color) 26%,#203e30);border-bottom-color:color-mix(in srgb,var(--event-color) 30%,#203e30)}
+.fed-feed-event[data-event-kind="created"],.fed-feed-event[data-event-kind="identity"]{--event-color:#60cbdd}
+.fed-feed-event[data-event-kind="tournament_proposal"]{--event-color:#d7a3ff}
+.fed-feed-event[data-event-kind="proposal_rejected"]{--event-color:#ff8c88}
+.fed-feed-event[data-event-kind="tournament"]{--event-color:#f8ce56}
+.fed-feed-event[data-event-kind="member_joined"]{--event-color:#77e1a4}
+.fed-feed-event[data-event-kind="achievement"]{--event-color:#f7b85d}
+.fed-feed-event[data-event-kind="rules"]{--event-color:#76b4f1}
+.fed-feed-event[data-event-kind="announcement"]{--event-color:#d5a4fa}
+.fed-question-editor{margin:12px 0;border-color:#78a7a0}
+.fed-question-fields [hidden]{display:none!important}
+.fed-answer-row{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:start;padding:12px;margin:6px 0;background:rgba(0,0,0,.13);border:1px solid #456c56;border-radius:11px}
+.fed-question-image-preview{width:72px;height:55px;object-fit:contain;display:block;margin-top:6px;border-radius:7px;background:#06130f}
+.fed-item-image-fields{display:grid;gap:12px;margin-top:10px}
+.fed-item-image-fields label{border:1px solid #40604b;border-radius:9px;padding:10px}
+@media(max-width:850px){.fed-top{height:auto;min-height:83px}.fed-brand img{width:135px;top:-5px;max-height:90px}.fed-tabs button{min-width:44px;padding:10px}.fed-answer-row{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.fed-tabs button,.fed-tab-name{transition:none}}
+
+/* Ajustes solicitados 08/11: transparencia, KPIs y marca. */
+.fed-card,.fed-item,.fed-kpi,.fed-empty{background-color:rgba(11,31,22,.63);backdrop-filter:blur(8px)}
+.fed-hero{background:linear-gradient(125deg,rgba(31,70,40,.62),rgba(10,27,23,.56) 80%);backdrop-filter:blur(8px)}
+.fed-top{overflow:visible}.fed-brand{position:relative;align-self:stretch;min-width:140px;overflow:visible;z-index:12}.fed-brand img{width:clamp(145px,16vw,210px);height:auto;max-height:none;position:absolute;left:0;top:2px;object-fit:contain;filter:drop-shadow(0 0 9px rgba(247,198,81,.66)) drop-shadow(0 0 18px rgba(98,239,212,.4));pointer-events:none}
+.fed-top>span{margin-left:clamp(120px,14vw,190px)}
+.audio-controls{display:inline-flex;align-items:center;gap:4px;padding:4px;background:rgba(3,15,12,.72);border:1px solid rgba(91,231,201,.18);border-radius:999px;box-shadow:0 6px 16px #0003}
+.audio-control-btn{width:32px;height:32px;display:grid;place-items:center;padding:0;cursor:pointer;color:#f7f3e8;background:#ffffff0a;border:1px solid transparent;border-radius:50%;font:inherit;font-size:15px;font-weight:900;line-height:1}
+.audio-control-btn.audio-toggle{color:#07110d;background:#62efd4}.audio-control-btn:hover{color:#f7c651;border-color:#5be7c9}
+.audio-volume-value{min-width:34px;padding-right:5px;color:#b9c8bf;font-size:10px;font-weight:800;text-align:right}
+.fed-home-kpis .fed-kpi{display:grid;grid-template-columns:35px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center}
+.fed-home-kpis .fed-kpi i{grid-row:span 2;font-size:28px}.fed-home-kpis .fed-kpi b{font-size:27px}.fed-home-kpis .fed-kpi-members{border-color:#4ac9ccaa;color:#92ebea}.fed-home-kpis .fed-kpi-members b{color:#92ebea}
+.fed-home-kpis .fed-kpi-tournaments{border-color:#f5c453aa;color:#f5c453}.fed-home-kpis .fed-kpi-tournaments b{color:#f5c453}
+.fed-home-kpis .fed-kpi-categories{border-color:#b999f0aa;color:#c8aaff}.fed-home-kpis .fed-kpi-categories b{color:#c8aaff}
+.fed-achievement,.fed-record{width:100%}.fed-achievement-victories{color:#f6ca62}.fed-achievement-correct{color:#70dcdb}.fed-achievement-answers{color:#70dcdb}.fed-achievement-streaks{color:#d9a7ff}
+.fed-achievement .fed-icon{background:currentColor;border:1px solid #ffffff30}.fed-achievement .fed-icon i{color:#09150d}
+.fed-record{display:flex;align-items:center;gap:14px}.fed-record .fed-icon{flex-shrink:0}.fed-record-0{color:#e8be66}.fed-record-1{color:#77deda}.fed-record-2{color:#d6a3ff}.fed-record-3{color:#9bdf80}.fed-record p{color:#cad6c8;margin:0}
+@media(max-width:850px){.fed-top{min-height:76px;height:auto;flex-wrap:wrap;padding-top:8px}.fed-brand{min-height:53px;min-width:120px}.fed-brand img{width:145px;top:-1px}.fed-audio-controls{order:3;margin:auto}.fed-top>span{display:none}}
+
+.fed-match-row{border-left:4px solid #99b8a0}.fed-match-row.stage-group{border-left-color:#50d77b}.fed-match-row.stage-round16{border-left-color:#ffe06a}.fed-match-row.stage-quarter{border-left-color:#ffab4f}.fed-match-row.stage-semi{border-left-color:#6aa5ff}.fed-match-row.stage-final{border-left-color:#ff6876}
+
+/* Ajustes exclusivos del PDF 11/11: contraste, organización de estadísticas y tabs. */
+.fed-main .fed-card,.fed-main .fed-item,.fed-main .fed-kpi,.fed-main .fed-empty,
+.fed-main .fed-hero,.fed-main .fed-banner,#federationGroupSettings,
+.fed-main .fed-subtabs button,.fed-nav button:not(.primary){
+  background:rgba(0,0,0,.60);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+/* El feed conserva la diferenciación cromática, sobre el nuevo fondo oscuro. */
+.fed-main .fed-feed-event{background:color-mix(in srgb,var(--event-color) 7%,rgba(0,0,0,.60));}
+.fed-member-search{margin-bottom:18px;}
+
+/* Ícono arriba, etiqueta debajo, responsable y valor al pie (todos los KPIs). */
+.fed-main .fed-kpi,.fed-kpis>.fed-kpi{
+  --k:#b7ef7b;display:flex;flex-direction:column;align-items:flex-start;
+  min-height:170px;gap:10px;padding:15px 17px;border-color:color-mix(in srgb,var(--k) 68%,transparent);
+  color:var(--k);background:rgba(0,0,0,.60);
+}
+.fed-kpi .fed-kpi-icon{
+  display:inline-grid;place-items:center;align-items:center;justify-items:center;
+  width:43px;height:43px;flex:0 0 43px;border:2px solid currentColor;
+  border-radius:50%;font-size:21px;line-height:1;color:var(--k);
+}
+.fed-kpi .fed-kpi-icon i{display:flex;align-items:center;justify-content:center;width:100%;height:100%;line-height:1;transform:translateY(1px)}
+.fed-kpi .fed-kpi-label{display:block;line-height:1.35;font-size:14px;font-weight:800;color:#f3f5ee;min-height:20px;overflow-wrap:anywhere}
+.fed-kpi .fed-kpi-holder{display:inline-block;align-self:flex-start;font-size:12px;font-weight:800;
+  max-width:100%;padding:3px 9px;border-radius:14px;background:var(--k);color:#06100c;overflow-wrap:anywhere}
+.fed-main .fed-kpi b.fed-kpi-value,.fed-kpis>.fed-kpi b.fed-kpi-value{
+  font-size:clamp(24px,2.4vw,34px);font-weight:900;line-height:1.1;margin-top:auto;color:var(--k);
+}
+.fed-home-kpis .fed-kpi,.fed-stat-kpis .fed-kpi{display:flex;grid-template-columns:none;grid-template-rows:none}
+.fed-home-kpis .fed-kpi .fed-kpi-icon i{grid-row:auto;font-size:21px}
+.fed-home-kpis .fed-kpi-members{--k:#7cdddc}
+.fed-home-kpis .fed-kpi-tournaments{--k:#f4cc5f}
+.fed-home-kpis .fed-kpi-categories{--k:#c6a8fa}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 1){--k:#b3ee79}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 2){--k:#64daca}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 3){--k:#88baff}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 4){--k:#d2a7ff}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 5){--k:#ffbd8b}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 6){--k:#f9dc78}
+.fed-stat-kpis .fed-kpi:nth-child(7n + 7){--k:#ff9bc4}
+.fed-record-kpis .fed-record-0{--k:#e8c062}
+.fed-record-kpis .fed-record-1{--k:#ee676f}
+.fed-record-kpis .fed-record-2{--k:#b5a2ed}
+.fed-record-kpis .fed-record-3{--k:#8ad880}
+.fed-record-kpis .fed-record{width:auto;align-items:flex-start}
+/* Posiciones destacadas, sin cambiar el color de los demás jugadores. */
+.fed-laureate{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.fed-laureate-title{display:inline-flex;align-items:center;gap:10px}
+.fed-laureate-title .fi{font-size:22px;color:var(--rank-color)}
+.fed-laureate-1{--rank-color:#f5cf44;border-color:#f5cf4499}
+.fed-laureate-2{--rank-color:#c4cbd4;border-color:#c4cbd499}
+.fed-laureate-3{--rank-color:#d88742;border-color:#d8874299}
+.fed-laureate-1 strong,.fed-laureate-2 strong,.fed-laureate-3 strong{color:var(--rank-color)}
+/* Tabs negras y acentos visibles sólo en texto/ícono y borde de selección. */
+.fed-tabs button,.fed-tabs button:hover,.fed-tabs button.active,.fed-tabs button:focus-visible{
+  background:rgba(0,0,0,.78);color:var(--tab-color);box-shadow:none;
+}
+.fed-tabs button{border:1px solid transparent;border-bottom:0}
+.fed-tabs button:hover{border-color:transparent}
+.fed-tabs button.active{border-color:var(--tab-color);box-shadow:inset 0 3px var(--tab-color)}
+.fed-tabs button .fi{color:var(--tab-color)}
+@media(max-width:650px){.fed-main .fed-kpi{min-height:150px}}
+
+/* Mantener contraste en pestañas secundarias sobre fondo negro. */
+.fed-main .fed-subtabs button.active{color:#f7cf71;border-color:#f7cf71;background:rgba(0,0,0,.60)}
+
+
+/* 11/11 — KPI: cifra al pie derecho (+5px); en móvil una tarjeta por fila. */
+.fed-main .fed-kpi b.fed-kpi-value,.fed-kpis>.fed-kpi b.fed-kpi-value{
+  align-self:flex-end;margin-left:auto;text-align:right;
+  font-size:clamp(29px,calc(2.4vw + 5px),39px);
+}
+/* Dos grupos definidos explícitamente; el orden no depende del ancho disponible. */
+.fed-stat-kpis{grid-template-columns:minmax(0,1fr);row-gap:12px}
+.fed-stat-kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;min-width:0}
+.fed-stat-kpi-row-secondary{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* Mantener el color original de cada métrica tras distribuirlas en dos filas. */
+.fed-stat-kpis .fed-kpi.fed-stat-kpi-1{--k:#b3ee79}
+.fed-stat-kpis .fed-kpi.fed-stat-kpi-2{--k:#64daca}
+.fed-stat-kpis .fed-kpi.fed-stat-kpi-3{--k:#88baff}
+.fed-stat-kpis .fed-kpi.fed-stat-kpi-4{--k:#ff9bc4}
+.fed-stat-kpis .fed-kpi.fed-stat-kpi-5{--k:#d2a7ff}
+.fed-stat-kpis .fed-kpi.fed-stat-kpi-6{--k:#ffbd8b}
+.fed-stat-kpis .fed-kpi.fed-stat-kpi-7{--k:#f9dc78}
+@media(max-width:700px){
+  .fed-main .fed-kpis,.fed-stat-kpi-row,.fed-stat-kpi-row-secondary{
+    display:grid;grid-template-columns:minmax(0,1fr);width:100%;
+  }
+  .fed-main .fed-kpi{width:100%}
+}
+
+/* Encuadre editable del banner federativo. Escudo y nombre quedan fijos. */
+.fed-banner{position:relative;background-position:center,50% 50%;background-repeat:no-repeat;background-size:cover;overflow:hidden}
+.fed-banner-controls{position:absolute;right:14px;top:12px;z-index:2;display:flex;align-items:flex-start;justify-content:flex-end;max-width:calc(100% - 28px)}
+.fed-banner-edit{background:rgba(0,0,0,.79);border:1px solid #bce997;color:#f0f7e7}
+.fed-banner-editor{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap;padding:8px;border-radius:10px;background:rgba(0,0,0,.84);border:1px solid #8eb67c}
+.fed-banner-editor[hidden],.fed-banner-edit[hidden]{display:none!important}
+.fed-banner-hint{color:#f0f7e7;font-size:12px;font-weight:700}
+.fed-banner.is-repositioning{cursor:grab;touch-action:none;user-select:none}
+.fed-banner.is-repositioning:active{cursor:grabbing}
+.fed-banner.is-repositioning>.fed-crest,.fed-banner.is-repositioning>div:not(.fed-banner-controls){pointer-events:none}
+.fed-banner.is-repositioning .fed-banner-controls{cursor:default;touch-action:auto}
+@media(max-width:650px){.fed-banner-controls{top:8px;right:8px}.fed-banner-editor{max-width:220px}.fed-banner-hint{flex:1 1 100%}}
+
+/* Salas amistosas: sólo controles nuevos dentro de Federados. */
+.fed-friendly-invites{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;max-height:172px;overflow:auto;border:1px solid #52715b;border-radius:9px;padding:10px;background:rgba(0,0,0,.32)}
+.fed-friendly-invite{display:flex!important;flex-direction:row!important;align-items:center;gap:8px!important;padding:6px 8px;border:1px solid #385a45;border-radius:7px;cursor:pointer}
+.fed-friendly-invite input{width:auto!important;margin:0;accent-color:#bbe778}
+.fed-friendly-room{align-items:center;gap:16px}
+.fed-friendly-info{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1 1 220px}
+.fed-friendly-code{font-size:13px;color:#b9d4be}
+.fed-friendly-code b{font-size:16px;color:#ffdf87;letter-spacing:.12em}
+.fed-friendly-room .fed-actions{flex:1 1 270px}
+@media(max-width:650px){.fed-friendly-room .fed-actions{flex-basis:100%;justify-content:flex-start}.fed-friendly-invites{grid-template-columns:1fr}}
+
+/* 12/11 — Controles de federados: juntos a la derecha, colores de acción y fondo negro. */
+.fed-member-item{display:flex;align-items:center;gap:14px}
+.fed-member-item>div:first-child{min-width:0;overflow-wrap:anywhere;flex:1 1 190px}
+.fed-member-actions{display:flex;align-items:center;justify-content:flex-end;flex:0 1 auto;
+  gap:10px;flex-wrap:wrap;margin-left:auto}
+.fed-member-actions .fed-member-action{
+  --member-tone:#e4c777;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  min-height:43px;padding:9px 14px;background:#000;border:1px solid var(--member-tone);
+  color:var(--member-tone);white-space:nowrap;border-radius:10px;font-weight:800;
+}
+.fed-member-actions .fed-member-action .fi{font-size:17px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.fed-member-actions .fed-member-action-achievements{--member-tone:#e7c176}
+.fed-member-actions .fed-member-action-challenge{--member-tone:#69d8e9}
+.fed-member-actions .fed-member-action-role{--member-tone:#c4a5fa}
+.fed-member-actions .fed-member-action-permissions{--member-tone:#90de9c}
+.fed-member-actions .fed-member-action:hover{background:#000;color:var(--member-tone);filter:brightness(1.2)}
+.fed-member-actions .fed-member-action:focus-visible{outline:2px solid var(--member-tone);outline-offset:3px}
+@media(max-width:680px){
+  .fed-member-item{align-items:flex-start}
+  .fed-member-actions{flex:1 1 100%;justify-content:flex-end;margin-left:0}
+}

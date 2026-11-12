@@ -9,10 +9,15 @@ const CANDIDATE_POOL_SIZE = 160;
 
 function publicQuestion(question) {
   const q = question.toJSON ? question.toJSON() : question;
+  // Las imágenes de respuesta deben viajar con su opción después del sorteo.
+  const order=q.type==='multiple_choice'?shuffle((q.options||[]).map((_,i)=>i)):null;
+  const media=q.questionMedia?{...q.questionMedia}:null;
+  if(order&&media)media.optionImageUrls=order.map(i=>q.questionMedia?.optionImageUrls?.[i]||null);
   return {
     id: q.id, type: q.type, prompt: q.prompt,
-    options: q.type === 'multiple_choice' ? shuffle(q.options || []) : q.options,
+    options: order?order.map(i=>q.options[i]):q.options,
     category: q.category, competition: q.competition, knowledgeArea: q.knowledgeArea,
+    questionMedia: media,
     tier: q.tier, difficulty: q.difficulty
   };
 }
@@ -57,7 +62,10 @@ async function registerQuestionUse(gameId, question) {
   await GameQuestion.create({
     gameId, questionId: question.id, tierSnapshot: question.tier,
     difficultySnapshot: question.difficulty,
-    knowledgeAreaSnapshot: question.knowledgeArea || question.competition || question.category || 'General'
+    knowledgeAreaSnapshot: question.knowledgeArea || question.competition || question.category || 'General',
+    questionSnapshot:{id:question.id,version:question.version,type:question.type,options:question.options,
+      correctAnswer:question.correctAnswer,prompt:question.prompt,category:question.category,
+      questionMedia:question.questionMedia||null}
   });
   await Question.update({ lastUsedAt: new Date(), timesShown: Sequelize.literal('times_shown + 1') }, { where: { id: question.id } });
   if (redis) {
@@ -92,12 +100,21 @@ async function drawQuestion(gameId, { preferredQuestionId = null } = {}) {
   const restrictedTiers = comp && comp.participantCount ? allowedQuestionTiers(comp) : [1,2,3];
   const preferredTiers = restrictedTiers.includes(desiredTier) ? [desiredTier] : restrictedTiers;
 
-  const baseWhere = { active: true, reviewStatus: 'published' };
+  // Aislamiento: una pregunta privada nunca puede aparecer en partidas globales
+  // ni en otra Federación. El torneo fija su temática antes del sorteo.
+  const tournament=game.tournamentId?await Tournament.findByPk(game.tournamentId,{attributes:['federationId','federationCategory','settings']}):null;
+  const federationIds=tournament?.federationId?[tournament.federationId,Number(tournament.settings?.opponentFederationId||0)].filter(Boolean):[];
+  const friendly=game.state?.settings?.federationFriendly;
+  const poolScope=federationIds.length
+    ?{federationId:federationIds.length===1?federationIds[0]:{[Op.in]:federationIds},...(tournament.federationCategory?{category:tournament.federationCategory}:{})}
+    :friendly?.federationId?{federationId:Number(friendly.federationId),category:String(friendly.category)}
+    :{federationId:null};
+  const baseWhere = { active: true, reviewStatus: 'published',...poolScope };
   if (usedIds.length) baseWhere.id = { [Op.notIn]: usedIds };
   let question = null;
 
   if (preferredQuestionId && !usedSet.has(Number(preferredQuestionId))) {
-    question = await Question.findOne({ where: { id: Number(preferredQuestionId), active: true, reviewStatus: 'published', tier: { [Op.in]: restrictedTiers } } });
+    question = await Question.findOne({ where: { id: Number(preferredQuestionId), active: true, reviewStatus: 'published', tier: { [Op.in]: restrictedTiers },...poolScope } });
   }
 
   for (const tiers of [preferredTiers, restrictedTiers]) {
@@ -109,7 +126,7 @@ async function drawQuestion(gameId, { preferredQuestionId = null } = {}) {
   // En fases con restricción competitiva no degradamos el tier: si el pool sin repetir se agotó,
   // repetimos una pregunta válida de esa dificultad antes que introducir una pregunta más fácil.
   if (!question && comp && restrictedTiers.length < 3) {
-    const candidates = await candidateQuestions({ active: true, reviewStatus: 'published', tier: { [Op.in]: restrictedTiers } });
+    const candidates = await candidateQuestions({ active: true, reviewStatus: 'published', tier: { [Op.in]: restrictedTiers },...poolScope });
     if (candidates.length) question = candidates[Math.floor(Math.random() * candidates.length)];
   }
 

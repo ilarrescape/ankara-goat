@@ -13,7 +13,7 @@ router.use(auth, admin);
 
 router.get('/questions', async (req, res, next) => {
   try {
-    const where = {};
+    const where = {federationId:null};
     if (req.query.status) where.reviewStatus = req.query.status;
     if (req.query.tier) where.tier = Number(req.query.tier);
     if (req.query.q) where.prompt = { [Op.like]: `%${req.query.q}%` };
@@ -26,7 +26,7 @@ router.get('/questions', async (req, res, next) => {
 
 router.get('/question-stats', async (req, res, next) => {
   try {
-    const rows = await Question.findAll({ attributes: ['type','tier','reviewStatus','active'], raw: true });
+    const rows = await Question.findAll({where:{federationId:null}, attributes: ['type','tier','reviewStatus','active'], raw: true });
     const stats = { total: rows.length, byType: {}, byTier: {}, byStatus: {}, active: 0 };
     for (const row of rows) {
       stats.byType[row.type] = (stats.byType[row.type] || 0) + 1;
@@ -48,7 +48,7 @@ router.get('/roulette-stats', async (req,res,next)=>{
 });
 router.post('/questions', async (req, res, next) => {
   try {
-    const payload = { ...req.body };
+    const payload = { ...req.body, federationId:null, federationAuthorId:null };
     payload.tier = Number(payload.tier || inferTier(payload));
     payload.reviewStatus = payload.reviewStatus || 'review';
     const q = await Question.create(payload);
@@ -59,7 +59,7 @@ router.post('/questions', async (req, res, next) => {
 router.patch('/questions/:id', async (req, res, next) => {
   try {
     const q = await Question.findByPk(Number(req.params.id));
-    if (!q) return res.status(404).json({ error: 'Pregunta inexistente.' });
+    if (!q||q.federationId) return res.status(404).json({ error: 'Pregunta inexistente.' });
     const allowed = ['type','prompt','options','correctAnswer','category','competition','knowledgeArea','tier','difficulty','reviewStatus','active'];
     for (const key of allowed) if (req.body[key] !== undefined) q[key] = req.body[key];
     q.version += 1;
@@ -91,7 +91,7 @@ router.post('/questions/import', upload.single('file'), async (req, res, next) =
 router.delete('/questions/:id', async (req, res, next) => {
   try {
     const q = await Question.findByPk(Number(req.params.id));
-    if (!q) return res.status(404).json({ error: 'Pregunta inexistente.' });
+    if (!q||q.federationId) return res.status(404).json({ error: 'Pregunta inexistente.' });
     await q.destroy();
     res.json({ ok: true, id: Number(req.params.id) });
   } catch (e) { next(e); }

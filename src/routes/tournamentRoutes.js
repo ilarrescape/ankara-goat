@@ -1,6 +1,7 @@
 const express = require('express');
+const multer = require('multer');
 const { Op } = require('sequelize');
-const { sequelize, Tournament, TournamentParticipant, TournamentInvitation, Match, Game, User, Team, StandingsTiebreak } = require('../models');
+const { sequelize, Tournament, TournamentParticipant, TournamentInvitation, Match, Game, User, Team, StandingsTiebreak,FederationMember } = require('../models');
 const auth = require('../middleware/auth');
 const { validateBoardSize, buildSchedule } = require('../services/tournamentService');
 const { validateTournamentSettings, trophyTier, trophyAsset, STATUS_LABELS } = require('../services/tournamentRules');
@@ -9,7 +10,17 @@ const { sortStandings, serializeStanding } = require('../services/standingsServi
 const { latestActivity, tournamentManagementPolicy } = require('../services/tournamentManagementService');
 const { ensureShareCode } = require('../services/publicShareService');
 
+const {uploadIllustration,safeImageUrl}=require('../services/storageService');
+const {preserveBannerSettings,updateBannerSettings}=require('../services/tournamentBanner');
 const router = express.Router();
+const trophyUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:2*1024*1024}});
+// Las temporadas se numeran al crear otra edición con el mismo nombre dentro de su Federación.
+async function nextSeasonNumber({name,federationId=null,organizerId},transaction){
+  const where={name,federationId};
+  if(!federationId)where.organizerId=organizerId;
+  const previous=await Tournament.findOne({where,order:[['seasonNumber','DESC'],['id','DESC']],transaction});
+  return Number(previous?.seasonNumber||0)+1;
+}
 router.use(auth);
 
 async function uniqueRoomCode() {
@@ -61,6 +72,8 @@ function normalizeTournamentPayload(body, organizerId) {
   const invitedIds = [...new Set((participantIds || []).map(Number).filter(id => id && id !== Number(organizerId)))];
   const maxParticipants = Number(settings.maxParticipants || invitedIds.length + 1);
   const normalizedSettings = validateTournamentSettings(format, maxParticipants, { ...settings, maxParticipants });
+  // La imagen y posición sólo se alteran en endpoints autorizados del banner.
+  for(const field of ['bannerImageUrl','bannerPositionX','bannerPositionY'])delete normalizedSettings[field];
   const specialCellPercent = Number(settings.specialCellPercent || 25);
   if (specialCellPercent < 20 || specialCellPercent > 35) throw new Error('Los casilleros especiales deben representar entre 20% y 35% del tablero.');
   normalizedSettings.specialCellPercent = specialCellPercent;
@@ -80,7 +93,8 @@ router.post('/', async (req, res, next) => {
     if (payload.invitedIds.length + 1 > payload.maxParticipants) throw new Error('Hay más invitados que cupos disponibles.');
     const accessCode=await uniqueAccessCode();
     const result=await sequelize.transaction(async transaction=>{
-      const tournament=await Tournament.create({ name:payload.name, format:payload.format, boardSize:payload.boardSize, settings:payload.settings, organizerId:req.user.id, status:'open', accessCode },{transaction});
+      const seasonNumber=await nextSeasonNumber({name:payload.name,organizerId:req.user.id},transaction);
+      const tournament=await Tournament.create({ name:payload.name, format:payload.format, boardSize:payload.boardSize, settings:payload.settings, organizerId:req.user.id, status:'open', accessCode,seasonNumber },{transaction});
       await TournamentParticipant.create({tournamentId:tournament.id,userId:req.user.id,seed:1},{transaction});
       const invitations=payload.invitedIds.length?await TournamentInvitation.bulkCreate(payload.invitedIds.map(inviteeId=>({tournamentId:tournament.id,inviterId:req.user.id,inviteeId,status:'pending'})),{transaction}):[];
       return {tournament:tournamentJson(tournament),invitations};
@@ -112,6 +126,11 @@ router.post('/invitations/:id/accept', async (req, res, next) => {
     if (invitation.status !== 'pending') throw new Error('La invitación ya fue respondida.');
     const tournament = await Tournament.findByPk(invitation.tournamentId);
     if (!tournament || tournament.status !== 'open') throw new Error('El torneo ya no acepta participantes.');
+    if(tournament.federationId){
+      const federationIds=[tournament.federationId,Number(tournament.settings?.opponentFederationId||0)].filter(Boolean);
+      const member=await FederationMember.findOne({where:{userId:req.user.id,federationId:{[Op.in]:federationIds},status:'active'}});
+      if(!member)throw new Error('Necesitás pertenecer a una de las Federaciones del torneo.');
+    }
     const maxParticipants=Number(tournament.settings?.maxParticipants||0);
     const currentCount=await TournamentParticipant.count({where:{tournamentId:tournament.id}});
     if(maxParticipants&&currentCount>=maxParticipants) throw new Error('El torneo ya completó todos sus cupos.');
@@ -142,6 +161,47 @@ router.post('/invitations/:id/decline', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+
+// Banner del torneo: el organizador define encuadre e imagen sin alterar el fixture.
+router.put('/:id/banner/position',async(req,res,next)=>{try{
+  const tournament=await Tournament.findByPk(Number(req.params.id));
+  if(!tournament)return res.status(404).json({error:'Torneo inexistente.'});
+  if(Number(tournament.organizerId)!==Number(req.user.id))return res.status(403).json({error:'Sólo el organizador puede mover el banner.'});
+  const {positionX,positionY}=req.body||{};
+  if(positionX===undefined||positionY===undefined)throw new Error('Falta la posición del banner.');
+  const settings=updateBannerSettings(tournament.settings,{positionX,positionY});
+  await tournament.update({settings});
+  res.json({bannerPositionX:settings.bannerPositionX,bannerPositionY:settings.bannerPositionY});
+}catch(e){next(e)}});
+router.post('/:id/banner/upload',trophyUpload.single('image'),async(req,res,next)=>{try{
+  const tournament=await Tournament.findByPk(Number(req.params.id));
+  if(!tournament)return res.status(404).json({error:'Torneo inexistente.'});
+  if(Number(tournament.organizerId)!==Number(req.user.id))return res.status(403).json({error:'Sólo el organizador puede cambiar el banner.'});
+  if(!req.file)throw new Error('Seleccioná una imagen.');
+  const media=await uploadIllustration(req.file.buffer,req.file.mimetype,req.user.id,'tournament-banners');
+  const settings=updateBannerSettings(tournament.settings,{bannerImageUrl:media.url,positionX:50,positionY:50});
+  await tournament.update({settings});
+  res.status(201).json({bannerImageUrl:settings.bannerImageUrl,bannerPositionX:50,bannerPositionY:50});
+}catch(e){next(e)}});
+
+// La imagen del trofeo puede actualizarse sin reconstruir el fixture.
+router.put('/:id/trophy',async(req,res,next)=>{try{
+  const tournament=await Tournament.findByPk(Number(req.params.id));
+  if(!tournament)return res.status(404).json({error:'Torneo inexistente.'});
+  if(Number(tournament.organizerId)!==Number(req.user.id))return res.status(403).json({error:'Sólo el organizador puede cambiar el trofeo.'});
+  const url=safeImageUrl(req.body.trophyImageUrl);
+  await tournament.update({trophyImageUrl:url});
+  res.json({trophyImageUrl:tournament.trophyImageUrl,seasonNumber:tournament.seasonNumber});
+}catch(e){next(e)}});
+router.post('/:id/trophy/upload',trophyUpload.single('image'),async(req,res,next)=>{try{
+  const tournament=await Tournament.findByPk(Number(req.params.id));
+  if(!tournament)return res.status(404).json({error:'Torneo inexistente.'});
+  if(Number(tournament.organizerId)!==Number(req.user.id))return res.status(403).json({error:'Sólo el organizador puede cambiar el trofeo.'});
+  if(!req.file)throw new Error('Seleccioná una imagen.');
+  const media=await uploadIllustration(req.file.buffer,req.file.mimetype,req.user.id,'trophies');
+  await tournament.update({trophyImageUrl:media.url});
+  res.status(201).json({trophyImageUrl:tournament.trophyImageUrl,seasonNumber:tournament.seasonNumber});
+}catch(e){next(e)}});
 
 router.put('/:id', async (req, res, next) => {
   try {
@@ -218,7 +278,7 @@ router.put('/:id', async (req, res, next) => {
       tournament.name = payload.name;
       tournament.format = payload.format;
       tournament.boardSize = payload.boardSize;
-      tournament.settings = payload.settings;
+      tournament.settings = preserveBannerSettings(tournament.settings, payload.settings);
       tournament.status = 'open';
       await tournament.save({ transaction });
       return tournament;
@@ -352,6 +412,11 @@ router.post('/join-code/:code', async (req,res,next)=>{
     const code=String(req.params.code||'').trim().toUpperCase();
     const tournament=await Tournament.findOne({where:{accessCode:code,status:'open'}});
     if(!tournament)return res.status(404).json({error:'Clave de torneo inválida o torneo cerrado.'});
+    if(tournament.federationId){
+      const federationIds=[tournament.federationId,Number(tournament.settings?.opponentFederationId||0)].filter(Boolean);
+      const member=await FederationMember.findOne({where:{userId:req.user.id,federationId:{[Op.in]:federationIds},status:'active'}});
+      if(!member)throw new Error('Este torneo está reservado para las Federaciones participantes.');
+    }
     const existing=await TournamentParticipant.findOne({where:{tournamentId:tournament.id,userId:req.user.id}});
     if(existing)return res.json({tournament:tournamentJson(tournament),participant:existing,created:false});
     const max=Number(tournament.settings?.maxParticipants||0);
@@ -455,7 +520,7 @@ router.get('/:id/podium', async (req, res, next) => {
       format:tournament.format,
       participantCount:participants.length,
       trophyTier:trophyTier(tournament.format,Number(tournament.settings?.maxParticipants||participants.length)),
-      trophyAsset:trophyAsset(tournament.format,trophyTier(tournament.format,Number(tournament.settings?.maxParticipants||participants.length))),
+      trophyAsset:tournament.trophyImageUrl||trophyAsset(tournament.format,trophyTier(tournament.format,Number(tournament.settings?.maxParticipants||participants.length))),
       podium
     });
   } catch(e) { next(e); }
@@ -497,7 +562,7 @@ router.get('/:id', async (req, res, next) => {
     const management = Number(t.organizerId) === Number(req.user.id)
       ? await tournamentManagement(t)
       : { canEdit:false, canDelete:false, canSuspend:false, hasPlayedMatches:false, hasActiveGame:false, lastActivityAt:null, deleteAvailableAt:null, deleteReason:null };
-    res.json({ ...tournamentJson(t), management, trophyTier:trophyTier(t.format,Number(t.settings?.maxParticipants||t.TournamentParticipants?.length||0)), trophyAsset:trophyAsset(t.format,trophyTier(t.format,Number(t.settings?.maxParticipants||t.TournamentParticipants?.length||0))) });
+    res.json({ ...tournamentJson(t), management, trophyTier:trophyTier(t.format,Number(t.settings?.maxParticipants||t.TournamentParticipants?.length||0)), trophyAsset:t.trophyImageUrl||trophyAsset(t.format,trophyTier(t.format,Number(t.settings?.maxParticipants||t.TournamentParticipants?.length||0))) });
   } catch (e) { next(e); }
 });
 

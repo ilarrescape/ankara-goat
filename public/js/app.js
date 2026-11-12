@@ -155,6 +155,40 @@ let me = null;
 let currentGame = null;
 let currentState = null;
 let currentSpectator = false;
+const canRender3d = !!window.CSS?.supports?.('transform-style', 'preserve-3d');
+let board2dFallback = localStorage.getItem('ankara_board_compat') === '2d' || !canRender3d;
+
+function sendStadiumMessage(message) {
+  const frame = document.querySelector('#stadium3dFrame');
+  if(frame?.contentWindow)frame.contentWindow.postMessage(message, window.location.origin);
+}
+
+function syncStadiumState() {
+  if(!currentState || board2dFallback)return;
+  sendStadiumMessage({ type:'ankara:board-state', state: {
+    boardSize:currentState.boardSize, players:currentState.players,
+    surprises:currentState.surprises, turnIndex:currentState.turnIndex,
+    turnNo:currentState.turnNo, phase:currentState.phase,
+    desktopView:window.matchMedia('(min-width: 901px) and (pointer: fine)').matches,
+    diceControl:{
+      allowed:!!(currentGame?.status==='running' && currentState.phase==='roll' &&
+        Number(currentTurnPlayer()?.userId)===Number(me?.id) && !currentSpectator &&
+        !clientActionPending && !hasPendingPlayerAbsence() &&
+        rollCountdownToken===currentState.turnToken && rollCountdownDeadline>Date.now()),
+      turnNo:currentState.turnNo,
+      phase:currentState.phase,
+      remaining:currentState.phase==='roll' && rollCountdownToken===currentState.turnToken
+        ?Math.max(0,Math.ceil((rollCountdownDeadline-Date.now())/1000)):null,
+      owner:currentTurnPlayer()?.username||'Jugador'
+    }
+  }});
+}
+
+window.addEventListener('message', event => {
+  if(event.origin!==window.location.origin || event.source!==document.querySelector('#stadium3dFrame')?.contentWindow)return;
+  if(event.data?.type==='ankara:board-ready') syncStadiumState();
+  if(event.data?.type==='ankara:dice-request') requestDiceRoll();
+});
 let socket = null;
 let selectedTournamentUsers = [];
 let questionTick = null;
@@ -195,10 +229,9 @@ const SPECIAL_CELL_VIDEO_URL = 'https://media.ankaragoat.fun/video/casillero-esp
 const FINAL_CELL_VIDEO_URL = 'https://media.ankaragoat.fun/video/winner.mp4';
 const SPECIAL_LOCKER_AUDIO_URL = 'https://media.ankaragoat.fun/audio/chants/special-locker.mp3';
 const WINNER_VIDEO_URL = 'https://media.ankaragoat.fun/video/ganaste.mp4';
-const BACKGROUND_VIDEO_URL = 'https://media.ankaragoat.fun/video/fondo.mp4';
 const backgroundVideoEl = document.getElementById('backgroundVideo');
 const backgroundImageEl = document.getElementById('backgroundImage');
-let backgroundMode = localStorage.getItem('ankara_background_mode') === 'fixed' ? 'fixed' : 'video';
+let backgroundMode = 'fixed';
 
 const ASSETS = {
   background: '/assets/images/background-ankara-goat.png',
@@ -253,19 +286,10 @@ function applyGlobalAudioVolume() {
   updateAudioControls();
 }
 
-function backgroundControlsMarkup(){
-  return `<div class="background-controls" aria-label="Fondo visual"><button type="button" class="background-mode-btn ${backgroundMode==='fixed'?'active':''}" data-background-mode="fixed" title="Fondo fijo"><i class="fi fi-rr-picture"></i><span>Fijo</span></button><button type="button" class="background-mode-btn ${backgroundMode==='video'?'active':''}" data-background-mode="video" title="Fondo en video"><i class="fi fi-rr-play-alt"></i><span>Video</span></button></div>`;
-}
-function applyBackgroundMode(mode,{persist=true}={}){
-  backgroundMode = mode==='fixed'?'fixed':'video';
-  document.body.dataset.backgroundMode=backgroundMode;
-  if(persist)localStorage.setItem('ankara_background_mode',backgroundMode);
-  if(backgroundVideoEl){
-    backgroundVideoEl.muted = backgroundMode!=='video' || !backgroundVideoAudioAllowed();
-    if(backgroundMode==='video') backgroundVideoEl.play().catch(()=>{});
-  }
-  syncBackgroundVideoAudio();
-  document.querySelectorAll('[data-background-mode]').forEach(btn=>btn.classList.toggle('active',btn.dataset.backgroundMode===backgroundMode));
+function backgroundControlsMarkup(){return '';}
+function applyBackgroundMode(){
+  backgroundMode='fixed';
+  document.body.dataset.backgroundMode='fixed';
 }
 function bindBackgroundControls(){
   document.querySelectorAll('[data-background-mode]').forEach(btn=>btn.addEventListener('click',()=>applyBackgroundMode(btn.dataset.backgroundMode)));
@@ -567,14 +591,6 @@ function installAudioUnlock() {
 
 introChantsAudio.volume = globalAudioVolume;
 stadiumChantsAudio.volume = globalAudioVolume;
-if(backgroundVideoEl){
-  backgroundVideoEl.src=BACKGROUND_VIDEO_URL;
-  backgroundVideoEl.loop=true;
-  backgroundVideoEl.playsInline=true;
-  backgroundVideoEl.muted=true;
-  backgroundVideoEl.volume=Math.min(.08,globalAudioVolume*.14);
-  backgroundVideoEl.play().catch(()=>{});
-}
 applyBackgroundMode(backgroundMode,{persist:false});
 installAudioUnlock();
 
@@ -597,8 +613,13 @@ function icon(name){
   return `<span class="icon icon-${name}">${map[name] || ''}</span>`;
 }
 
-function pageBanner({eyebrow='', eyebrowActions='', title='', subtitle='', actions='', player=true, compact=false} = {}){
-  return `<section class="page-banner ${compact ? 'compact' : ''}">
+function pageBanner({eyebrow='', eyebrowActions='', title='', subtitle='', actions='', player=true, compact=false, trophy=null, tournamentBanner=null} = {}){
+  const bannerX=Math.max(0,Math.min(100,Number(tournamentBanner?.positionX??50)||0));
+  const bannerY=Math.max(0,Math.min(100,Number(tournamentBanner?.positionY??50)||0));
+  const bannerCandidate=String(tournamentBanner?.imageUrl||'');
+  const bannerImage=(/^https:\/\/[^\s\"'<>\\()]+$/i.test(bannerCandidate)||/^\/uploads\/[a-zA-Z0-9_.-]+$/.test(bannerCandidate))
+    ? bannerCandidate : '/assets/images/background-ankara-goat.png';
+  return `<section class="page-banner ${compact ? 'compact' : ''} ${trophy ? 'tournament-banner-has-trophy' : ''} ${tournamentBanner ? 'tournament-image-banner' : ''}" ${tournamentBanner?`id="tournamentBannerPosition" style="--t-banner-x:${bannerX}%;--t-banner-y:${bannerY}%;--t-banner-image:url('${escapeHtml(bannerImage)}')"`:''}>
     <div class="page-banner-copy">
       ${eyebrow ? `<div class="eyebrow-row"><div class="eyebrow">${eyebrow}</div>${eyebrowActions ? `<div class="eyebrow-actions">${eyebrowActions}</div>` : ''}</div>` : ''}
       <h1>${title}</h1>
@@ -606,6 +627,7 @@ function pageBanner({eyebrow='', eyebrowActions='', title='', subtitle='', actio
       ${actions ? `<div class="actions banner-actions">${actions}</div>` : ''}
     </div>
     ${player ? `<div class="page-banner-visual"><div class="player-aura"></div><div class="player-particles"></div><img src="${ASSETS.player}" alt="Jugador Ankara GOAT" class="page-banner-player"></div>` : ''}
+    ${trophy ? `<img class="tournament-banner-trophy" src="${escapeHtml(trophy)}" alt="Trofeo del torneo">` : ''}
   </section>`;
 }
 
@@ -673,13 +695,9 @@ function playNegativeSurpriseSound() {
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
 function startDiceAnimation() {
-  const button = $('#diceBtn');
-  if (!button) return;
   audioContext();
-  button.classList.add('rolling');
   clearInterval(diceSpinTimer);
   diceSpinTimer = setInterval(() => {
-    button.textContent = DICE_FACES[Math.floor(Math.random() * DICE_FACES.length)];
     tone(150 + Math.random() * 140, 0.030, 0.090, 'square');
   }, 70);
 }
@@ -688,24 +706,13 @@ async function finishDiceAnimation(roll) {
   await new Promise(resolve => setTimeout(resolve, 420));
   clearInterval(diceSpinTimer);
   diceSpinTimer = null;
-  const button = $('#diceBtn');
-  if (button) {
-    button.textContent = DICE_FACES[Math.max(0, Math.min(5, Number(roll) - 1))] || '🎲';
-    button.classList.remove('rolling');
-  }
   tone(360, 0.09, 0.140, 'triangle');
   await new Promise(resolve => setTimeout(resolve, 520));
-  if($('[data-modal-kind="dice_roll"]',modalRoot))closeModal();
 }
 
 function stopDiceAnimation() {
   clearInterval(diceSpinTimer);
   diceSpinTimer = null;
-  const button = $('#diceBtn');
-  if (button) {
-    button.textContent = '🎲';
-    button.classList.remove('rolling');
-  }
 }
 
 async function api(path, options = {}) {
@@ -860,36 +867,10 @@ function hasPendingPlayerAbsence(){
   );
 }
 
-function diceModalMarkup(){
-  const current=currentTurnPlayer();
-  const isMyTurn=Number(current?.userId)===Number(me?.id)&&!currentSpectator;
-  const seconds=Math.max(0,Math.ceil((rollCountdownDeadline-Date.now())/1000));
-  const status=isMyTurn
-    ? (clientActionPending?'Procesando tirada…':'Tirá el dado')
-    : `${escapeHtml(current?.username||'El jugador del turno')} está por tirar`;
-  return `<div class="modal-backdrop dice-roll-backdrop" data-modal-kind="dice_roll"><div class="modal dice-roll-modal">
-    <div class="kicker">TURNO ${Number(currentState?.turnNo||1)}</div>
-    <h2>${escapeHtml(current?.username||'Jugador')}</h2>
-    <p class="muted dice-roll-status">${status}</p>
-    <div class="dice-interaction-shell ${isMyTurn?'is-active':'is-locked'}">
-      <button type="button" class="dice dice-modal-button" id="diceBtn" ${isMyTurn&&!clientActionPending?'':'disabled'} aria-label="Tirar dado">🎲</button>
-      ${isMyTurn?'':`<button type="button" class="dice-lock-guard" id="diceLockGuard" aria-label="No es tu turno todavía"></button><div class="dice-turn-warning" id="diceTurnWarning">No es tu turno todavía</div>`}
-    </div>
-    <div class="dice-countdown-copy">${isMyTurn?'Tenés':'Tiene'} <b id="rollCountdown">${seconds||10}</b> s para tirar.</div>
-    <div class="timer dice-modal-timer"><div id="rollTimerBar"></div></div>
-    ${isMyTurn?'<small class="muted">Si no tirás, el dado se ejecutará automáticamente.</small>':'<small class="muted">Todos ven la tirada en tiempo real.</small>'}
-  </div></div>`;
-}
-
-function ensureDiceModal(){
+// El dado es un control del estadio integrado; no se abre ningún modal.
+function ensureDiceControl(){
   if(!currentGame||!currentState||currentGame.status!=='running'||currentState.phase!=='roll'||hasPendingPlayerAbsence())return false;
-  const existing=$('[data-modal-kind]',modalRoot)?.dataset?.modalKind;
-  if(existing&&existing!=='dice_roll')return false;
-  if(existing!=='dice_roll') modalRoot.innerHTML=diceModalMarkup();
-  const button=$('#diceBtn',modalRoot);
-  if(button&&!button.dataset.bound){button.dataset.bound='1';button.addEventListener('click',()=>requestDiceRoll())}
-  const guard=$('#diceLockGuard',modalRoot);
-  if(guard&&!guard.dataset.bound){guard.dataset.bound='1';guard.addEventListener('pointerdown',e=>{e.preventDefault();const warning=$('#diceTurnWarning',modalRoot);if(!warning)return;warning.classList.add('show');clearTimeout(warning._t);warning._t=setTimeout(()=>warning.classList.remove('show'),1500)},{passive:false})}
+  syncStadiumState();
   return true;
 }
 
@@ -913,8 +894,7 @@ function requestDiceRoll({automatic=false}={}){
   clearInterval(rollTick);
   rollTick=null;
   clientActionPending=true;
-  const button=$('#diceBtn');
-  if(button)button.disabled=true;
+  sendStadiumMessage({type:'ankara:dice-rolling'});
   animatingMovement=true;
   startDiceAnimation();
 
@@ -967,7 +947,7 @@ function startRollCountdown({reset=false}={}){
     autoRollTriggeredToken=null;
   }
 
-  if(!ensureDiceModal())return;
+  if(!ensureDiceControl())return;
 
   clearInterval(rollTick);
 
@@ -985,10 +965,8 @@ function startRollCountdown({reset=false}={}){
 
     const left=Math.max(0,rollCountdownDeadline-Date.now());
     const seconds=Math.ceil(left/1000);
-    const value=$('#rollCountdown');
-    const bar=$('#rollTimerBar');
-    if(value)value.textContent=String(seconds);
-    if(bar)bar.style.width=`${Math.max(0,Math.min(100,left/ROLL_WINDOW_MS*100))}%`;
+    // El contador se actualiza dentro del iframe sin reconstruir el estadio.
+    sendStadiumMessage({type:'ankara:dice-tick',remaining:seconds});
 
     if(left<=0){
       clearInterval(rollTick);
@@ -1025,6 +1003,9 @@ async function leaveCurrentGame(){
   }
   if(socket?.connected){
     await new Promise(resolve=>socket.emit('leave_game',{gameId:game.id},ack=>{if(!ack?.ok)toast(ack?.error||'No se pudo salir correctamente.');resolve()}));
+  }
+  if(document.fullscreenElement===app){
+    try{screen.orientation?.unlock?.();await document.exitFullscreen()}catch{}
   }
   resetGameViewState();
   await renderDashboard();
@@ -1068,12 +1049,13 @@ async function renderDashboard() {
       </div>
       <section class="card panel-quick"><div class="kicker dashboard-kicker">${icon('play')} Partida rápida</div><h2>Crear sala</h2>
         <div class="field"><label>Nombre</label><input id="quickName" value="Clásico de ${escapeHtml(me.username)}"></div>
-        <div class="grid two"><div class="field"><label>Casilleros</label><select id="quickBoard">${[25,30,35,40,45,50,55,60,65,70].map(n=>`<option ${n===40?'selected':''}>${n}</option>`).join('')}</select></div>
+        <div class="grid two"><div class="field"><label>Casilleros</label><select id="quickBoard">${Array.from({length:41},(_,i)=>i+30).map(n=>`<option ${n===40?'selected':''}>${n}</option>`).join('')}</select></div>
         <div class="field"><label>Modo de preguntas</label><select id="quickMode">${tierModeOptions()}</select></div></div>
+        <div class="field"><label>Máximo de jugadores por tablero</label><select id="quickMaxPlayers">${Array.from({length:7},(_,i)=>i+2).map(n=>`<option ${n===8?'selected':''}>${n}</option>`).join('')}</select></div>
         <div class="field"><label>Casilleros especiales: <span id="quickSpecialLabel">25%</span></label><input id="quickSpecial" type="range" min="20" max="35" value="25"></div><label class="check"><input id="allowSpectators" type="checkbox" checked> Permitir espectadores</label>
         <button class="btn primary" id="createGameBtn" style="width:100%;margin-top:10px">${icon('room')}Crear sala</button></section>
     </div>
-    <div class="section-title themed tournament-section-title"><h2>${icon('tournament')}Torneos</h2><span class="actions"><button class="btn" id="joinTournamentCodeBtn">Entrar con código</button><button class="btn" id="newTournamentBtn">+ Nuevo torneo</button></span></div>
+    <div class="section-title themed tournament-section-title"><h2>${icon('tournament')}Torneos</h2><span class="actions"><a class="btn" href="/federaciones.html">${icon('room')} Federaciones</a><button class="btn" id="joinTournamentCodeBtn">Entrar con código</button><button class="btn" id="newTournamentBtn">+ Nuevo torneo</button></span></div>
     <div class="grid two"><section class="card tournament-list-card"><div class="kicker">Mis competiciones</div><div class="list" style="margin-top:12px">
       ${tournaments.length ? tournaments.map(t=>`<button class="list-item" data-tournament-id="${t.id}" style="color:white;cursor:pointer;width:100%"><span><b>${escapeHtml(t.name)}</b><br><small class="muted">${formatLabel(t.format)} · ${t.boardSize} casilleros</small></span><span class="status">${escapeHtml(t.statusLabel||t.status)}</span></button>`).join(''):'<div class="empty">Todavía no participás de ningún torneo.</div>'}</div></section>
       <section class="card central-rule"><div class="kicker">Regla central</div><h2>El avance se gana</h2><p class="muted">El dado marca el destino potencial. La ficha llega visualmente hasta allí, pero la posición solo se confirma si acertás la trivia. Si fallás, permanecés donde estabas.</p>
@@ -1087,6 +1069,20 @@ async function renderDashboard() {
   $$('[data-invite-decline]').forEach(el=>el.onclick=()=>respondInvite(el.dataset.inviteDecline,'decline'));
   $$('[data-resume-game]').forEach(el=>el.onclick=()=>{const g=activeGames.find(x=>Number(x.id)===Number(el.dataset.resumeGame));if(g)enterGame(g,false)});
   startPresenceCountdowns();
+  const linkedRoom=new URLSearchParams(location.search).get('room');
+  if(linkedRoom&&/^[A-Z2-9]{6}$/i.test(linkedRoom)){
+    history.replaceState(null,'',location.pathname);
+    setTimeout(async()=>{
+      try{const game=await api(`/api/games/join/${encodeURIComponent(linkedRoom.toUpperCase())}`,{method:'POST',body:'{}'});await enterGame(game,false);}
+      catch(error){toast(error.message);}
+    },0);
+    return;
+  }
+  const linkedTournament=new URLSearchParams(location.search).get('tournament');
+  if(linkedTournament&&/^\d+$/.test(linkedTournament)){
+    history.replaceState(null,'',location.pathname);
+    setTimeout(()=>openTournamentDetails(Number(linkedTournament)).catch(e=>toast(e.message)),0);
+  }
 }
 
 
@@ -1099,7 +1095,7 @@ async function respondInvite(id, action) {
 
 async function createQuickGame() {
   try {
-    const game = await api('/api/games', { method:'POST', body:JSON.stringify({ name:$('#quickName').value, boardSize:Number($('#quickBoard').value), questionMode:$('#quickMode').value, spectatorsAllowed:$('#allowSpectators').checked, specialCellPercent:Number($('#quickSpecial').value) }) });
+    const game = await api('/api/games', { method:'POST', body:JSON.stringify({ name:$('#quickName').value, boardSize:Number($('#quickBoard').value), maxPlayers:Number($('#quickMaxPlayers').value), questionMode:$('#quickMode').value, spectatorsAllowed:$('#allowSpectators').checked, specialCellPercent:Number($('#quickSpecial').value) }) });
     enterGame(game,false);
   } catch(e){ toast(e.message); }
 }
@@ -1145,8 +1141,8 @@ function openTournamentModal(){
     <div class="field"><label>Nombre</label><input name="name" required placeholder="Copa de los Enfermos"></div>
     <div class="grid two"><div class="field"><label>Formato</label><select name="format" id="tFormat"><option value="league_1v1">Liga 1 vs 1</option><option value="shared_board_league">Liga en tablero compartido</option><option value="group_knockout">Liguilla + eliminación</option><option value="cup">Copa</option></select></div>
     <div class="field"><label>Participantes</label><select name="maxParticipants" id="tCapacity"></select></div></div>
-    <div class="grid two"><div class="field"><label>Casilleros</label><select name="boardSize">${[25,30,35,40,45,50,55,60,65,70].map(n=>`<option ${n===40?'selected':''}>${n}</option>`).join('')}</select></div><div class="field"><label>Casilleros especiales</label><select name="specialCellPercent">${[20,25,30,35].map(n=>`<option value="${n}" ${n===25?'selected':''}>${n}%</option>`).join('')}</select></div></div>
-    <div class="field"><label>Modo de preguntas</label><select name="questionMode">${tierModeOptions()}</select></div><div id="formatSettings"></div>
+    <div class="grid two"><div class="field"><label>Casilleros</label><select name="boardSize">${Array.from({length:41},(_,i)=>i+30).map(n=>`<option ${n===40?'selected':''}>${n}</option>`).join('')}</select></div><div class="field"><label>Casilleros especiales</label><select name="specialCellPercent">${[20,25,30,35].map(n=>`<option value="${n}" ${n===25?'selected':''}>${n}%</option>`).join('')}</select></div></div>
+    <div class="grid two"><div class="field"><label>Modo de preguntas</label><select name="questionMode">${tierModeOptions()}</select></div><div class="field"><label>Máximo de jugadores por tablero</label><select name="maxPlayersPerBoard">${Array.from({length:7},(_,i)=>i+2).map(n=>`<option ${n===8?'selected':''}>${n}</option>`).join('')}</select></div></div><div id="formatSettings"></div>
     <div class="field"><label>Invitar usuarios (opcional)</label><input id="userSearch" placeholder="Buscar por usuario..."></div><div id="searchResults" class="list"></div><div id="selectedUsers" class="chips" style="margin:12px 0"></div>
     <p class="help">También podrás compartir el código de acceso. El torneo sólo comienza cuando se completa el cupo y el organizador lo inicia.</p>
     <div class="actions end"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary">Crear torneo</button></div></form></div></div>`;
@@ -1176,15 +1172,91 @@ async function searchUsers(q){
   }catch(e){toast(e.message)}}
 function renderSelectedUsers(){$('#selectedUsers').innerHTML=selectedTournamentUsers.map(u=>`<button type="button" class="chip" data-remove-user="${u.id}" style="border:0;color:#fff;cursor:pointer">${escapeHtml(u.username)} ×</button>`).join('');$$('[data-remove-user]',modalRoot).forEach(btn=>btn.onclick=()=>{selectedTournamentUsers=selectedTournamentUsers.filter(u=>u.id!==Number(btn.dataset.removeUser));renderSelectedUsers()})}
 
-async function createTournament(e){e.preventDefault();const form=Object.fromEntries(new FormData(e.currentTarget)),settings={questionMode:form.questionMode,maxParticipants:Number(form.maxParticipants),specialCellPercent:Number(form.specialCellPercent)};if(form.matchCount)settings.matchCount=Number(form.matchCount);if(form.groupConfig!=null&&form.groupConfig!==''){const c=(GROUP_CONFIGS[Number(form.maxParticipants)]||[])[Number(form.groupConfig)];if(c){settings.groupCount=c[0];settings.groupSize=c[1]}}if(form.qualifiersPerGroup)settings.qualifiersPerGroup=Number(form.qualifiersPerGroup);if(form.groupMode)settings.groupMode=form.groupMode;if(form.groupMatchCount)settings.groupMatchCount=Number(form.groupMatchCount);
+async function createTournament(e){e.preventDefault();const form=Object.fromEntries(new FormData(e.currentTarget)),settings={questionMode:form.questionMode,maxParticipants:Number(form.maxParticipants),maxPlayersPerBoard:Number(form.maxPlayersPerBoard||8),specialCellPercent:Number(form.specialCellPercent)};if(form.matchCount)settings.matchCount=Number(form.matchCount);if(form.groupConfig!=null&&form.groupConfig!==''){const c=(GROUP_CONFIGS[Number(form.maxParticipants)]||[])[Number(form.groupConfig)];if(c){settings.groupCount=c[0];settings.groupSize=c[1]}}if(form.qualifiersPerGroup)settings.qualifiersPerGroup=Number(form.qualifiersPerGroup);if(form.groupMode)settings.groupMode=form.groupMode;if(form.groupMatchCount)settings.groupMatchCount=Number(form.groupMatchCount);
   try{const data=await api('/api/tournaments',{method:'POST',body:JSON.stringify({name:form.name,format:form.format,boardSize:Number(form.boardSize),settings,participantIds:selectedTournamentUsers.map(u=>u.id)})});closeModal();toast(`Torneo creado. Código: ${data.tournament.accessCode||'—'}`);await openTournamentDetails(data.tournament.id)}catch(err){toast(err.message)}}
 
 function openTournamentEditModal(t){
   const invites=(t.TournamentInvitations||[]).filter(i=>['pending','accepted'].includes(i.status)).map(i=>Number(i.inviteeId));
-  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="kicker">ORGANIZADOR</div><h2>Editar torneo</h2><form id="editTournamentForm"><div class="field"><label>Nombre</label><input name="name" value="${escapeHtml(t.name)}" required></div><div class="grid two"><div class="field"><label>Formato</label><select name="format" id="editTFormat">${['league_1v1','shared_board_league','group_knockout','cup'].map(f=>`<option value="${f}" ${f===t.format?'selected':''}>${formatLabel(f)}</option>`).join('')}</select></div><div class="field"><label>Cupo</label><select name="maxParticipants" id="editTCapacity"></select></div></div><div class="grid two"><div class="field"><label>Casilleros</label><select name="boardSize">${[25,30,35,40,45,50,55,60,65,70].map(n=>`<option ${Number(t.boardSize)===n?'selected':''}>${n}</option>`).join('')}</select></div><div class="field"><label>Casilleros especiales</label><input name="specialCellPercent" type="number" min="20" max="35" value="${Number(t.settings?.specialCellPercent||25)}"></div></div><div id="editFormatSettings"></div><div class="actions end"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary">Guardar cambios</button></div></form></div></div>`;
+  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="kicker">ORGANIZADOR</div><h2>Editar torneo</h2><form id="editTournamentForm"><div class="field"><label>Nombre</label><input name="name" value="${escapeHtml(t.name)}" required></div><div class="grid two"><div class="field"><label>Formato</label><select name="format" id="editTFormat">${['league_1v1','shared_board_league','group_knockout','cup'].map(f=>`<option value="${f}" ${f===t.format?'selected':''}>${formatLabel(f)}</option>`).join('')}</select></div><div class="field"><label>Cupo</label><select name="maxParticipants" id="editTCapacity"></select></div></div><div class="grid two"><div class="field"><label>Casilleros</label><select name="boardSize">${Array.from({length:41},(_,i)=>i+30).map(n=>`<option ${Number(t.boardSize)===n?'selected':''}>${n}</option>`).join('')}</select></div><div class="field"><label>Casilleros especiales</label><input name="specialCellPercent" type="number" min="20" max="35" value="${Number(t.settings?.specialCellPercent||25)}"></div></div><div id="editFormatSettings"></div>
+    <div class="field"><label>Trofeo de la temporada ${Number(t.seasonNumber||1)} (URL HTTPS opcional)</label><input type="url" name="trophyImageUrl" placeholder="https://..." value="${escapeHtml(t.trophyImageUrl||'')}"></div>
+    <div class="field"><label>O subir una imagen para el trofeo (PNG, JPG, WebP · máximo 2 MB)</label><input type="file" name="trophyFile" accept="image/png,image/jpeg,image/webp"></div>
+    <label class="check"><input type="checkbox" name="resetTrophy"> Quitar imagen personalizada y usar el trofeo predeterminado</label>
+    <div class="actions end"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary">Guardar cambios</button></div></form></div></div>`;
   const render=()=>{const f=$('#editTFormat').value,cap=$('#editTCapacity'),old=Number(cap.value)||Number(t.settings?.maxParticipants);const opts=capacityOptions(f);cap.innerHTML=opts.map(n=>`<option value="${n}" ${(n===old||(!opts.includes(old)&&n===opts[0]))?'selected':''}>${n}</option>`).join('');const n=Number(cap.value),root=$('#editFormatSettings');if(f==='shared_board_league')root.innerHTML=`<div class="field"><label>Fechas</label><input name="matchCount" type="number" min="3" max="10" value="${Number(t.settings?.matchCount||3)}"></div>`;else if(f==='group_knockout'){const configs=GROUP_CONFIGS[n]||[];let idx=configs.findIndex(c=>c[0]===Number(t.settings?.groupCount));if(idx<0)idx=0;root.innerHTML=`<div class="grid two"><div class="field"><label>Distribución</label><select name="groupConfig" id="editGroupConfig">${configs.map((c,i)=>`<option value="${i}" ${i===idx?'selected':''}>${c[0]} grupos de ${c[1]}</option>`).join('')}</select></div><div class="field"><label>Clasifican por grupo</label><select name="qualifiersPerGroup" id="editQualifiers"></select></div></div><div class="field"><label>Modalidad del grupo</label><select name="groupMode"><option value="1v1" ${t.settings?.groupMode!=='shared'?'selected':''}>1 vs 1</option><option value="shared" ${t.settings?.groupMode==='shared'?'selected':''}>Tablero compartido</option></select></div><div class="field"><label>Fechas compartidas</label><input name="groupMatchCount" type="number" min="3" max="10" value="${Number(t.settings?.groupMatchCount||3)}"></div>`;const uq=()=>{const c=configs[Number($('#editGroupConfig').value)]||configs[0];$('#editQualifiers').innerHTML=(c?.[2]||[]).map(x=>`<option ${x===Number(t.settings?.qualifiersPerGroup)?'selected':''}>${x}</option>`).join('')};$('#editGroupConfig').onchange=uq;uq()}else root.innerHTML=''};
   $('[data-close]',modalRoot).onclick=closeModal;$('#editTFormat').onchange=render;$('#editTCapacity').onchange=render;render();
-  $('#editTournamentForm').onsubmit=async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget)),settings={...(t.settings||{}),maxParticipants:Number(f.maxParticipants),specialCellPercent:Number(f.specialCellPercent)};if(f.matchCount)settings.matchCount=Number(f.matchCount);if(f.groupConfig!=null&&f.groupConfig!==''){const c=(GROUP_CONFIGS[Number(f.maxParticipants)]||[])[Number(f.groupConfig)];settings.groupCount=c?.[0];settings.groupSize=c?.[1];settings.qualifiersPerGroup=Number(f.qualifiersPerGroup);settings.groupMode=f.groupMode;settings.groupMatchCount=Number(f.groupMatchCount||3)};try{await api(`/api/tournaments/${t.id}`,{method:'PUT',body:JSON.stringify({name:f.name,format:f.format,boardSize:Number(f.boardSize),settings,participantIds:invites})});closeModal();toast('Torneo actualizado.');openTournamentDetails(t.id)}catch(err){toast(err.message)}};
+  $('#editTournamentForm').onsubmit=async e=>{e.preventDefault();const image=e.currentTarget.elements.namedItem('trophyFile')?.files?.[0]||null;const f=Object.fromEntries(new FormData(e.currentTarget)),settings={...(t.settings||{}),maxParticipants:Number(f.maxParticipants),specialCellPercent:Number(f.specialCellPercent)};if(f.matchCount)settings.matchCount=Number(f.matchCount);if(f.groupConfig!=null&&f.groupConfig!==''){const c=(GROUP_CONFIGS[Number(f.maxParticipants)]||[])[Number(f.groupConfig)];settings.groupCount=c?.[0];settings.groupSize=c?.[1];settings.qualifiersPerGroup=Number(f.qualifiersPerGroup);settings.groupMode=f.groupMode;settings.groupMatchCount=Number(f.groupMatchCount||3)};try{await api(`/api/tournaments/${t.id}`,{method:'PUT',body:JSON.stringify({name:f.name,format:f.format,boardSize:Number(f.boardSize),settings,participantIds:invites})});
+      if(f.resetTrophy)await api(`/api/tournaments/${t.id}/trophy`,{method:'PUT',body:JSON.stringify({trophyImageUrl:null})});
+      else if(image){const fd=new FormData();fd.append('image',image);await apiForm(`/api/tournaments/${t.id}/trophy/upload`,fd);}
+      else if(String(f.trophyImageUrl||'')!==String(t.trophyImageUrl||''))await api(`/api/tournaments/${t.id}/trophy`,{method:'PUT',body:JSON.stringify({trophyImageUrl:f.trophyImageUrl||null})});
+      closeModal();toast('Torneo actualizado.');openTournamentDetails(t.id)}catch(err){toast(err.message)}};
+}
+
+function openTournamentTrophyModal(t){
+  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="kicker">IDENTIDAD DEL TORNEO · TEMPORADA ${Number(t.seasonNumber||1)}</div><h2>Trofeo de ${escapeHtml(t.name)}</h2>
+    <p class="muted">Podés subir una imagen JPG, PNG o WebP (hasta 2 MB), indicar un enlace HTTPS o utilizar el trofeo predeterminado de AnkaraGOAT. Cada temporada conserva su propio trofeo.</p>
+    <div class="trophy-editor-preview"><img src="${escapeHtml(t.trophyAsset||'/assets/images/trophies/copa-bronce.png')}" alt="Trofeo actual" id="trophyPreview"></div>
+    <form id="trophyEditor"><div class="field"><label>Imagen desde tu equipo</label><input type="file" name="image" accept="image/png,image/jpeg,image/webp"></div>
+    <div class="field"><label>O URL HTTPS de la imagen</label><input type="url" name="trophyImageUrl" placeholder="https://..." value="${escapeHtml(t.trophyImageUrl||'')}"></div>
+    <label class="check"><input type="checkbox" name="resetTrophy"> Usar trofeo predeterminado de AnkaraGOAT</label>
+    <div class="actions end"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary">Guardar trofeo</button></div></form></div></div>`;
+  $('[data-close]',modalRoot).onclick=closeModal;
+  const form=$('#trophyEditor');
+  form.elements.namedItem('image').addEventListener('change',e=>{const file=e.target.files?.[0];if(file){if(file.size>2*1024*1024)return toast('La imagen no debe superar 2 MB.');const preview=$('#trophyPreview');const url=URL.createObjectURL(file);preview.onload=()=>URL.revokeObjectURL(url);preview.src=url;}});
+  form.onsubmit=async event=>{event.preventDefault();const data=new FormData(form);try{
+    if(data.has('resetTrophy'))await api(`/api/tournaments/${t.id}/trophy`,{method:'PUT',body:JSON.stringify({trophyImageUrl:null})});
+    else if(form.elements.namedItem('image').files?.[0]){const file=new FormData();file.append('image',form.elements.namedItem('image').files[0]);await apiForm(`/api/tournaments/${t.id}/trophy/upload`,file);}
+    else await api(`/api/tournaments/${t.id}/trophy`,{method:'PUT',body:JSON.stringify({trophyImageUrl:data.get('trophyImageUrl')||null})});
+    closeModal();toast('Trofeo de la temporada actualizado.');await openTournamentDetails(t.id);
+  }catch(e){toast(e.message)}};
+}
+
+function tournamentStageName(stage){return ({group:'Liguilla',league:'Liga',shared_league:'Liga compartida',round_of_16:'Octavos',eighthfinal:'Octavos',quarterfinal:'Cuartos',semifinal:'Semifinal',final:'Final'})[stage]||String(stage||'Fecha');}
+function tournamentStageClass(stage){const x=String(stage||'').toLowerCase();return x==='group'||x==='league'||x==='shared_league'?'stage-group':x.includes('16')||x.includes('eighth')?'stage-round16':x.includes('quarter')?'stage-quarter':x.includes('semi')?'stage-semi':x==='final'?'stage-final':'stage-other';}
+function tournamentMatchLabel(match,users){
+  const finishes=new Map((match.result?.finishOrder||[]).map(p=>[Number(p.userId),Number(p.position)]));
+  if(!(match.participants||[]).length)return escapeHtml(describeSources(match.source));
+  return (match.participants||[]).map(id=>`${escapeHtml(users.get(Number(id))||`Jugador ${id}`)}${finishes.has(Number(id))?` <strong class="match-position">${finishes.get(Number(id))}º</strong>`:''}`).join(' <span class="match-versus">vs</span> ');
+}
+function setupTournamentBannerControls(t){
+  const banner=$('#tournamentBannerPosition');
+  const edit=$('#repositionTournamentBanner');
+  const upload=$('#uploadTournamentBanner');
+  if(!banner||!edit||!upload)return;
+  const uploader=document.createElement('input');
+  uploader.type='file';uploader.accept='image/png,image/jpeg,image/webp';
+  uploader.hidden=true;uploader.setAttribute('aria-label','Subir imagen del banner del torneo');
+  banner.appendChild(uploader);
+  upload.onclick=()=>uploader.click();
+  uploader.onchange=async()=>{
+    const file=uploader.files?.[0];if(!file)return;
+    if(file.size>2*1024*1024){toast('La imagen no debe superar 2 MB.');uploader.value='';return;}
+    const data=new FormData();data.append('image',file);
+    upload.disabled=true;
+    try{await apiForm(`/api/tournaments/${t.id}/banner/upload`,data);toast('Imagen del banner actualizada.');await openTournamentDetails(t.id)}
+    catch(error){toast(error.message);upload.disabled=false;uploader.value='';}
+  };
+  edit.onclick=()=>{
+    if(banner.classList.contains('banner-is-repositioning'))return;
+    const initialX=Number(t.settings?.bannerPositionX??50),initialY=Number(t.settings?.bannerPositionY??50);
+    let x=initialX,y=initialY,dragging=null;
+    banner.classList.add('banner-is-repositioning');
+    const toolbar=document.createElement('div');toolbar.className='tournament-reposition-tools';
+    toolbar.innerHTML='<span id="bannerRepositionHelp">Arrastrá el fondo para elegir el encuadre · Flechas para ajustar</span><button type="button" class="btn primary" id="saveTournamentBanner">Guardar posición</button><button type="button" class="btn ghost" id="cancelTournamentBanner">Cancelar</button>';
+    banner.appendChild(toolbar);banner.tabIndex=0;banner.focus({preventScroll:true});
+    const draw=()=>{banner.style.setProperty('--t-banner-x',`${x}%`);banner.style.setProperty('--t-banner-y',`${y}%`)};
+    const stop=()=>{dragging=null;banner.classList.remove('banner-is-repositioning');toolbar.remove();banner.removeAttribute('tabindex');banner.removeEventListener('pointerdown',down);banner.removeEventListener('pointermove',move);banner.removeEventListener('pointerup',up);banner.removeEventListener('pointercancel',up);banner.removeEventListener('keydown',key)};
+    const down=event=>{if(event.button!==0||event.target.closest('button'))return;event.preventDefault();dragging={id:event.pointerId,left:event.clientX,top:event.clientY,x,y};banner.setPointerCapture?.(event.pointerId)};
+    const move=event=>{if(!dragging||event.pointerId!==dragging.id)return;x=Math.max(0,Math.min(100,dragging.x+(event.clientX-dragging.left)*100/banner.clientWidth));y=Math.max(0,Math.min(100,dragging.y+(event.clientY-dragging.top)*100/banner.clientHeight));draw()};
+    const up=event=>{if(dragging?.id===event.pointerId)dragging=null};
+    const key=event=>{const delta=event.shiftKey?10:2;if(event.key==='ArrowLeft')x=Math.max(0,x-delta);else if(event.key==='ArrowRight')x=Math.min(100,x+delta);else if(event.key==='ArrowUp')y=Math.max(0,y-delta);else if(event.key==='ArrowDown')y=Math.min(100,y+delta);else if(event.key==='Escape'){stop();x=initialX;y=initialY;draw();return}else return;event.preventDefault();draw()};
+    banner.addEventListener('pointerdown',down);banner.addEventListener('pointermove',move);banner.addEventListener('pointerup',up);banner.addEventListener('pointercancel',up);banner.addEventListener('keydown',key);
+    $('#cancelTournamentBanner',toolbar).onclick=()=>{stop();x=initialX;y=initialY;draw()};
+    $('#saveTournamentBanner',toolbar).onclick=async()=>{
+      const save=$('#saveTournamentBanner',toolbar);save.disabled=true;
+      try{await api(`/api/tournaments/${t.id}/banner/position`,{method:'PUT',body:JSON.stringify({positionX:Math.round(x*10)/10,positionY:Math.round(y*10)/10})});stop();toast('Encuadre del banner guardado.');}
+      catch(error){toast(error.message);save.disabled=false;}
+    };
+  };
 }
 
 async function openTournamentDetails(id){
@@ -1192,14 +1264,20 @@ async function openTournamentDetails(id){
   try{const [t,standingData]=await Promise.all([api(`/api/tournaments/${id}`),api(`/api/tournaments/${id}/standings`)]),isOrg=t.organizerId===me.id;
     const renderTable=(rows,title)=>`<section class="card"><div class="kicker">${escapeHtml(title)}</div><div class="table-wrap"><table class="standings"><thead><tr><th title="Posición"><i class="fi fi-rr-hashtag"></i></th><th class="standing-team-head"><i class="fi fi-rr-users"></i><span>Equipo</span></th><th title="Puntos"><i class="fi fi-rr-star"></i></th><th title="Victorias"><i class="fi fi-rr-trophy"></i></th><th title="Preguntas correctas"><i class="fi fi-rr-check"></i></th><th title="Preguntas incorrectas"><i class="fi fi-rr-cross-circle"></i></th><th title="Diferencia"><i class="fi fi-rr-chart-histogram"></i></th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.exactTiePending?'tie-pending':''}"><td>${r.position}</td><td>${escapeHtml(r.team?.crestEmoji||'⚽')} <b>${escapeHtml(r.team?.name||r.username)}</b>${r.exactTiePending?' <small>⚖ desempate</small>':''}</td><td><b>${r.points}</b></td><td>${r.wins}</td><td>${r.correctAnswers}</td><td>${r.incorrectAnswers}</td><td>${r.answerDifference>0?'+':''}${r.answerDifference}</td></tr>`).join('')}</tbody></table></div></section>`;
     const tables=Object.entries(standingData.groups||{}).map(([code,rows])=>renderTable(rows,code==='overall'?'Tabla de posiciones':`Grupo ${code}`)).join('');
+    const userNames=new Map((t.TournamentParticipants||[]).map(p=>[Number(p.userId),p.User?.Team?.name||p.User?.username||`Jugador ${p.userId}`]));
+    const championRow=(t.TournamentParticipants||[]).find(p=>Number(p.finalPosition)===1);
+    const secondRow=(t.TournamentParticipants||[]).find(p=>Number(p.finalPosition)===2);
+    const podiumLabels=t.status==='finished'?`<span class="champion-status-pill champion-first"><i class="fi fi-rr-trophy"></i> ${escapeHtml(championRow?.User?.Team?.name||championRow?.User?.username||'Campeón')}</span>${secondRow?`<span class="champion-status-pill champion-second"><i class="fi fi-rr-medal"></i> ${escapeHtml(secondRow.User?.Team?.name||secondRow.User?.username||'Subcampeón')}</span>`:''}`:'';
     const ties=(standingData.tiebreaks||[]);
-    app.innerHTML=`${pageBanner({eyebrow: escapeHtml(formatLabel(t.format)), title: escapeHtml(t.name), subtitle: `${t.boardSize} casilleros · ${t.TournamentParticipants?.length||0}/${t.settings?.maxParticipants||'?'} participantes · ${escapeHtml(t.statusLabel||t.status)}${t.accessCode?` · Código <b>${escapeHtml(t.accessCode)}</b>`:''}`, player:false, compact:true, actions:`${isOrg&&t.management?.canEdit?'<button class=\"btn\" id=\"editTournament\">Editar</button>':''}${isOrg&&t.status==='open'?'<button class=\"btn primary\" id=\"startTournament\">Generar calendario</button>':''}${isOrg&&t.management?.canDelete?'<button class=\"btn danger\" id=\"deleteTournament\">Eliminar torneo</button>':''}${isOrg&&t.management?.canSuspend?'<button class=\"btn danger\" id=\"deleteTournament\">Suspender torneo</button>':''}${['running','finished','suspended'].includes(t.status)?'<button class=\"btn\" id=\"shareTournamentStats\"><i class=\"fi fi-rr-share\"></i> Compartir</button>':''}<button class=\"btn ghost\" id=\"backDash\">← Vestuario</button>`})}
+    app.innerHTML=`${pageBanner({eyebrow: escapeHtml(formatLabel(t.format)), title: escapeHtml(t.name), trophy:t.trophyAsset, tournamentBanner:{imageUrl:t.settings?.bannerImageUrl,positionX:t.settings?.bannerPositionX??50,positionY:t.settings?.bannerPositionY??50}, subtitle: `Temporada ${Number(t.seasonNumber||1)} · ${t.boardSize} casilleros · ${t.TournamentParticipants?.length||0}/${t.settings?.maxParticipants||'?'} participantes · ${escapeHtml(t.statusLabel||t.status)}${t.accessCode?` · Código <b>${escapeHtml(t.accessCode)}</b>`:''}`, player:false, compact:true, actions:`${isOrg&&t.management?.canEdit?'<button class=\"btn\" id=\"editTournament\">Editar</button>':''}${isOrg?'<button class=\"btn\" id=\"editTournamentTrophy\">🏆 Cambiar trofeo</button><button class=\"btn\" id=\"repositionTournamentBanner\"><i class=\"fi fi-rr-move\"></i> Reubicar banner</button><button class=\"btn\" id=\"uploadTournamentBanner\"><i class=\"fi fi-rr-picture\"></i> Cambiar imagen</button>':''}${isOrg&&t.status==='open'?'<button class=\"btn primary\" id=\"startTournament\">Generar calendario</button>':''}${isOrg&&t.management?.canDelete?'<button class=\"btn danger\" id=\"deleteTournament\">Eliminar torneo</button>':''}${isOrg&&t.management?.canSuspend?'<button class=\"btn danger\" id=\"deleteTournament\">Suspender torneo</button>':''}${['running','finished','suspended'].includes(t.status)?'<button class=\"btn\" id=\"shareTournamentStats\"><i class=\"fi fi-rr-share\"></i> Compartir</button>':''}${t.federationId?'<button class=\"btn ghost\" id=\"backFederation\">← Federación</button>':''}<button class=\"btn ghost\" id=\"backDash\">← Vestuario</button>${podiumLabels}`})}
       ${(ties.some(x=>(x.excludedUserIds||[]).map(Number).includes(Number(me.id))))?'<section class="card invite-card"><div class="kicker">Desempate extraordinario</div><p>Hubo más participantes empatados que lugares disponibles en el tablero. El ELO se utilizó únicamente para determinar el acceso al desempate y quedaste fuera del bloque habilitado, según el reglamento.</p></section>':''}<div class="standings-stack">${tables}</div>
       ${ties.length?`<section class="card"><div class="kicker">Desempates</div><div class="list">${ties.map(x=>`<div class="list-item"><span><b>${x.scope==='group'?`Grupo ${escapeHtml(x.groupCode)}`:'Tabla final'}</b><br><small class="muted">${(x.userIds||[]).length} jugadores · ${escapeHtml(x.status)}</small></span>${isOrg&&x.status!=='resolved'?`<button class="btn primary" data-open-tiebreak="${x.id}">Abrir desempate</button>`:''}</div>`).join('')}</div></section>`:''}
       <div class="grid two"><section class="card"><div class="kicker">Participantes aceptados</div><div class="list" style="margin-top:12px">${(t.TournamentParticipants||[]).map(p=>`<div class="list-item"><span>${escapeHtml(p.User?.Team?.crestEmoji||'⚽')} <b>${escapeHtml(p.User?.username||p.userId)}</b>${p.groupCode?` · Grupo ${p.groupCode}`:''}</span><span class="actions"><span class="score-strong">${p.points} pts</span>${isOrg&&t.status==='open'&&Number(p.userId)!==Number(me.id)?`<button class="btn danger" data-kick-participant="${p.userId}">Quitar</button>`:''}</span></div>`).join('')}</div></section>
       <section class="card"><div class="kicker">Invitaciones</div><div class="list" style="margin-top:12px">${(t.TournamentInvitations||[]).map(i=>`<div class="list-item"><span>${escapeHtml(i.invitee?.username||i.inviteeId)}</span><span class="status">${escapeHtml(i.status)}</span></div>`).join('')||'<div class="empty">Sin invitaciones.</div>'}</div></section></div>
-      <div class="section-title"><h2>Calendario</h2></div><section class="card"><div class="list">${(t.Matches||[]).map(m=>`<div class="list-item"><span><b>R${m.roundNo} · ${escapeHtml(m.stage)}</b><br><small class="muted">${m.groupCode?`Grupo ${m.groupCode} · `:''}${m.participants?.length?m.participants.join(' vs '):describeSources(m.source)}</small></span><span class="actions"><span class="status">${m.status}</span>${isOrg&&m.participants?.length>=2&&m.status!=='finished'?`<button class="btn" data-open-match="${m.id}">Abrir sala</button>`:''}</span></div>`).join('')||'<div class="empty">El calendario se crea cuando el organizador inicia el torneo.</div>'}</div></section>`;
-    $('#backDash').onclick=()=>token?renderDashboard():renderLanding();$('#shareTournamentStats')?.addEventListener('click',()=>shareTournamentPublicPage(t.id,t.name));$('#editTournament')?.addEventListener('click',()=>openTournamentEditModal(t));$('#deleteTournament')?.addEventListener('click',async()=>{if(!confirm(t.management?.canSuspend?'¿Suspender el torneo y conservar todas las estadísticas?':'¿Eliminar este torneo?'))return;try{const out=await api(`/api/tournaments/${t.id}`,{method:'DELETE'});toast(out.suspended?'Torneo suspendido.':'Torneo eliminado.');renderDashboard()}catch(e){toast(e.message)}});$('#startTournament')?.addEventListener('click',async()=>{try{await api(`/api/tournaments/${t.id}/start`,{method:'POST',body:'{}'});toast('Calendario generado.');openTournamentDetails(t.id)}catch(e){toast(e.message)}});
+      <div class="section-title"><h2>Calendario y resultados</h2></div><section class="card"><div class="list">${(t.Matches||[]).map(m=>`<div class="list-item match-round-row ${tournamentStageClass(m.stage)}"><span><b>Fecha ${m.roundNo} · ${escapeHtml(tournamentStageName(m.stage))}</b><br><small>${m.groupCode?`Grupo ${escapeHtml(m.groupCode)} · `:''}${tournamentMatchLabel(m,userNames)}</small></span><span class="actions"><span class="status">${m.status==='finished'?'Finalizado':m.status==='running'?'En juego':'Pendiente'}</span>${isOrg&&m.participants?.length>=2&&m.status!=='finished'?`<button class="btn" data-open-match="${m.id}">Abrir sala</button>`:''}</span></div>`).join('')||'<div class="empty">El calendario se crea cuando el organizador inicia el torneo.</div>'}</div></section>`;
+    $('#backFederation')?.addEventListener('click',()=>{location.href=`/federaciones.html?id=${Number(t.federationId)}&tab=tournaments`;});
+    if(isOrg)setupTournamentBannerControls(t);
+    $('#backDash').onclick=()=>token?renderDashboard():renderLanding();$('#shareTournamentStats')?.addEventListener('click',()=>shareTournamentPublicPage(t.id,t.name));$('#editTournament')?.addEventListener('click',()=>openTournamentEditModal(t));$('#editTournamentTrophy')?.addEventListener('click',()=>openTournamentTrophyModal(t));$('#deleteTournament')?.addEventListener('click',async()=>{if(!confirm(t.management?.canSuspend?'¿Suspender el torneo y conservar todas las estadísticas?':'¿Eliminar este torneo?'))return;try{const out=await api(`/api/tournaments/${t.id}`,{method:'DELETE'});toast(out.suspended?'Torneo suspendido.':'Torneo eliminado.');renderDashboard()}catch(e){toast(e.message)}});$('#startTournament')?.addEventListener('click',async()=>{try{await api(`/api/tournaments/${t.id}/start`,{method:'POST',body:'{}'});toast('Calendario generado.');openTournamentDetails(t.id)}catch(e){toast(e.message)}});
     $$('[data-open-match]').forEach(b=>b.onclick=async()=>{try{const g=await api(`/api/tournaments/${t.id}/matches/${b.dataset.openMatch}/game`,{method:'POST',body:'{}'});enterGame(g,!g.state?.players?.some(p=>p.userId===me.id))}catch(e){toast(e.message)}});
     $$('[data-kick-participant]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Quitar este participante del torneo?'))return;try{await api(`/api/tournaments/${t.id}/participants/${b.dataset.kickParticipant}`,{method:'DELETE'});openTournamentDetails(t.id)}catch(e){toast(e.message)}});
     $$('[data-open-tiebreak]').forEach(b=>b.onclick=async()=>{try{const g=await api(`/api/tournaments/${t.id}/tiebreaks/${b.dataset.openTiebreak}/game`,{method:'POST',body:'{}'});enterGame(g,!g.state?.players?.some(p=>p.userId===me.id))}catch(e){toast(e.message)}});
@@ -1213,18 +1291,23 @@ async function createPublicShare(kind,id){
   return `${location.origin}${data.path}`;
 }
 
+// Logos de marcas: todos comparten la misma biblioteca y tamaño.
+function simpleSocialIcon(slug,hex){
+  return `<img class="social-brand-icon" src="https://cdn.simpleicons.org/${slug}/${hex}" width="24" height="24" alt="" loading="lazy" decoding="async">`;
+}
+
 function openSocialShareSheet({url,title,text}){
   document.getElementById('socialShareOverlay')?.remove();
   const wrap=document.createElement('div');wrap.id='socialShareOverlay';wrap.className='social-share-overlay';
   const encodedUrl=encodeURIComponent(url),encodedTitle=encodeURIComponent(title),encodedText=encodeURIComponent(`${text||title} ${url}`);
   wrap.innerHTML=`<div class="social-share-sheet"><button type="button" class="presentation-close" data-close-social aria-label="Cerrar">×</button><div class="kicker">COMPARTIR ANKARAGOAT</div><h3>${escapeHtml(title)}</h3><div class="social-share-grid">
     <button type="button" class="social-share-item" data-native-social><i class="fi fi-rr-share"></i><span>Compartir</span></button>
-    <a class="social-share-item" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}"><b>f</b><span>Facebook</span></a>
-    <a class="social-share-item" target="_blank" rel="noopener" href="https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}"><b>r/</b><span>Reddit</span></a>
-    <a class="social-share-item" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}"><b>𝕏</b><span>X</span></a>
-    <a class="social-share-item" target="_blank" rel="noopener" href="https://wa.me/?text=${encodedText}"><b>W</b><span>WhatsApp</span></a>
-    <a class="social-share-item" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}"><b>T</b><span>Telegram</span></a>
-    <button type="button" class="social-share-item" data-instagram-share><i class="fi fi-rr-camera"></i><span>Instagram</span></button>
+    <a class="social-share-item" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}">${simpleSocialIcon('facebook','1877F2')}<span>Facebook</span></a>
+    <a class="social-share-item" target="_blank" rel="noopener" href="https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}">${simpleSocialIcon('reddit','FF4500')}<span>Reddit</span></a>
+    <a class="social-share-item" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}">${simpleSocialIcon('x','FFFFFF')}<span>X</span></a>
+    <a class="social-share-item" target="_blank" rel="noopener" href="https://wa.me/?text=${encodedText}">${simpleSocialIcon('whatsapp','25D366')}<span>WhatsApp</span></a>
+    <a class="social-share-item" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}">${simpleSocialIcon('telegram','26A5E4')}<span>Telegram</span></a>
+    <button type="button" class="social-share-item" data-instagram-share>${simpleSocialIcon('instagram','E4405F')}<span>Instagram</span></button>
     <button type="button" class="social-share-item" data-copy-social><i class="fi fi-rr-copy-alt"></i><span>Copiar link</span></button>
   </div><div class="share-url-preview">${escapeHtml(url)}</div></div>`;
   document.body.appendChild(wrap);
@@ -1554,7 +1637,7 @@ function showTournamentPodiumModal(data) {
         <h2 class="match-modal-title">Campeón del torneo</h2>
         <div class="match-context-grid single-context"><div class="match-context-card">${icon('tournament')}<span><small>Campeonato</small><b>${escapeHtml(data.tournamentName || 'Torneo Ankara GOAT')}</b></span></div></div>
         <div class="champion-trophy">${data.trophyAsset?`<img src="${escapeHtml(data.trophyAsset)}" alt="Trofeo">`:``}</div><div class="match-podium tournament-podium" data-count="${podium.length}">${podiumEntriesMarkup(podium, true)}</div>
-        <div class="match-modal-actions"><button type="button" class="btn" id="shareTournamentPodium">Compartir campeón</button><button type="button" class="btn primary large" id="continueTournamentPodium">Continuar</button></div>
+        <div class="match-modal-actions champion-actions"><button type="button" class="btn" id="shareTournamentPodium"><i class="fi fi-rr-share"></i> Compartir campeón</button><button type="button" class="btn primary" id="continueTournamentPodium"><i class="fi fi-rr-arrow-right"></i> Continuar</button></div>
       </div>
     </div>
   </div>`;
@@ -1563,6 +1646,7 @@ function showTournamentPodiumModal(data) {
   $('#shareTournamentPodium')?.addEventListener('click',()=>shareTournamentPublicPage(data.tournamentId, data.tournamentName||'Torneo AnkaraGOAT'));
   $('#continueTournamentPodium')?.addEventListener('click', close);
   $('[data-close-presentation]', modalRoot)?.addEventListener('click', close);
+  modalRoot.querySelector('[data-modal-kind="tournament_podium"]')?.addEventListener('click',event=>{if(event.target===event.currentTarget)close();});
 }
 
 async function handleTournamentUpdated(data) {
@@ -1653,6 +1737,7 @@ function connectSocket(){
   socket.on('dice_result',async data=>{
     if(!currentGame)return;
     if(data.turnToken && currentState?.turnToken && data.turnToken!==currentState.turnToken)return;
+    sendStadiumMessage({type:'ankara:dice-roll',value:data.roll});
     animatingMovement=true;
     await finishDiceAnimation(data.roll);
     toast(`${playerName(data.userId)} sacó ${data.roll}`);
@@ -1669,7 +1754,28 @@ function connectSocket(){
   socket.on('roulette_state',p=>{if(!currentGame||Number(p.gameId)!==Number(currentGame.id))return;const pr=p.pendingRoulette||{};if(p.phase==='roulette_wait')openRouletteReady({gameId:p.gameId,ownerUserId:pr.ownerUserId,spinDeadline:pr.spinDeadline,turnToken:currentState?.turnToken});else if(p.phase==='roulette_spinning')showRouletteSpin({gameId:p.gameId,ownerUserId:pr.ownerUserId,durationMs:Math.max(500,Number(pr.revealAt||Date.now())-Date.now()),effect:pr.effect});});
   socket.on('roulette_ready',p=>{if(!currentGame||Number(p.gameId)!==Number(currentGame.id))return;if(animatingMovement){queuedRouletteReady=p;return}openRouletteReady(p)});
   socket.on('roulette_spin',p=>{if(currentGame&&Number(p.gameId)===Number(currentGame.id))showRouletteSpin(p)});
-  socket.on('roulette_result',p=>{if(currentGame&&Number(p.gameId)===Number(currentGame.id))showRouletteResult(p)});
+  socket.on('roulette_result',async p=>{
+    if(!currentGame||Number(p.gameId)!==Number(currentGame.id))return;
+    showRouletteResult(p);
+    if(p.requiresTarget)return;
+    // A diferencia del resultado de una pregunta, la ruleta publica el estado
+    // final inmediatamente. Lo retenemos mientras termina el aviso visual y
+    // animamos TODAS las fichas afectadas, incluidos intercambios y retrocesos.
+    animatingMovement=true;
+    try{
+      await wait(2200);
+      // El estado autoritativo llega enseguida por game_state. Hay un pequeño
+      // margen para redes lentas; nunca calculamos por nuestra cuenta el efecto.
+      for(let n=0;n<30&&!queuedGameState&&currentGame;n++)await wait(100);
+      if(queuedGameState?.state?.players){
+        await animatePlayersTo(queuedGameState.state.players);
+      }
+    }finally{
+      animatingMovement=false;
+      flushQueuedGameState();
+      releaseDeferredTurnUi();
+    }
+  });
   socket.on('roulette_target_required',p=>{if(currentGame&&Number(p.gameId)===Number(currentGame.id)&&Number(p.ownerUserId||me.id)===Number(me.id))openRouletteTarget(p)});
 
   socket.on('answer_result',r=>{
@@ -1740,6 +1846,24 @@ function visualPositionFor(p){
   return p.position;
 }
 
+async function toggleGameLandscape(){
+  try{
+    if(document.fullscreenElement===app){
+      try{screen.orientation?.unlock?.()}catch{}
+      await document.exitFullscreen();
+      return;
+    }
+    if(!app.requestFullscreen){toast('Girá tu teléfono para jugar en horizontal.');return}
+    await app.requestFullscreen();
+    try{
+      if(screen.orientation?.lock)await screen.orientation.lock('landscape');
+      else toast('GirÁ el teléfono para verlo horizontal.');
+    }catch{
+      toast('El navegador no permite forzar la orientación. Girá el teléfono manualmente.');
+    }
+  }catch{toast('No se pudo activar pantalla completa; podés girar el teléfono manualmente.')}
+}
+
 function renderGame(){
   setView('game');
   if(!currentGame||!currentState)return;if(currentGame.status==='lobby'||currentState.phase==='lobby')return renderLobby();
@@ -1751,15 +1875,36 @@ function renderGame(){
   const canRoll=isMyTurn&&currentState.phase==='roll'&&!clientActionPending&&!hasAbsence;
   const canArchive=finished&&currentState.finishReason==='forfeit'&&!currentSpectator;
   const resultBanner=finished?`<section class="card" style="margin-bottom:14px"><div class="kicker">RESULTADO</div><h2>${mePlayer?.finishOrder===1?'🏆 Ganaste':'Partida terminada'}</h2><p class="muted">${currentState.finishReason==='forfeit'?(mePlayer?.finishOrder===1?'Victoria por abandono. El resultado cuenta para tu ELO.':mePlayer?.forfeitedAt?'Derrota por abandono.':'Partida definida por abandono.'):'Resultado registrado.'}</p>${canArchive?'<button class="btn ghost" id="archiveGame">Eliminar de mis partidas</button>':''}</section>`:'';
-  const absenceBanner=hasAbsence?`<section class="card" style="margin-bottom:14px"><div class="kicker">PARTIDA EN PAUSA</div><p style="margin-bottom:0">${absentPlayers.map(p=>`${escapeHtml(p.username)} está desconectado · <b data-grace-deadline="${Number(currentState.presence[String(p.userId)].graceDeadline)}"></b>`).join('<br>')}</p><small class="muted">Si no vuelve dentro del minuto, perderá por abandono.</small></section>`:'';
+  const absenceBanner=hasAbsence?`<section class="card" style="margin-bottom:14px"><div class="kicker">JUGADOR DESCONECTADO</div><p style="margin-bottom:0">${absentPlayers.map(p=>`${escapeHtml(p.username)} está desconectado · <b data-grace-deadline="${Number(currentState.presence[String(p.userId)].graceDeadline)}"></b>`).join('<br>')}</p><small class="muted">El resto continúa jugando. Si no vuelve antes del plazo indicado, perderá por abandono sin sumar puntos.</small></section>`:'';
 
-  app.innerHTML=`<div class="dashboard-head"><div><div class="eyebrow">SALA ${escapeHtml(currentGame.roomCode||'')} ${currentSpectator?'· ESPECTADOR':''}</div><h1>${escapeHtml(currentGame.name||'Partida')}</h1><div class="muted">👁 ${currentSpectatorCount} espectadores · Modo ${escapeHtml(currentState.settings?.questionMode||'ankara')}</div></div><button class="btn ghost" id="leaveGame">${finished?'← Volver al vestuario':'← Salir de la partida'}</button></div>
-    ${resultBanner}${absenceBanner}<div class="game-grid"><div class="board" id="board">${renderBoardCells()}</div><aside class="sidepanel">
-      <section class="card turn"><div class="kicker">Turno ${currentState.turnNo||1}</div><h2>${escapeHtml(current?.username||'—')}</h2><div class="muted">${hasAbsence?'Esperando reconexión...':currentState.phase==='roll'?'Dado en pantalla':phaseLabel(currentState.phase)}</div></section>
-      <section class="card"><div class="kicker">Tabla de carrera</div><div class="list" style="margin-top:10px">${[...(currentState.players||[])].sort((a,b)=>visualPositionFor(b)-visualPositionFor(a)).map(p=>`<div class="player-row"><span class="dot" style="background:${escapeHtml(p.team?.primaryColor||'#888')}"></span><span style="flex:1">${escapeHtml(p.username)}<small class="muted"> · ${escapeHtml(p.team?.name||'Equipo')}</small></span><b>${p.finishOrder?`#${p.finishOrder}`:`${visualPositionFor(p)}/${currentState.boardSize}`}</b>${p.userId!==me.id&&p.team?.id?`<button type="button" class="mini-report" data-report-team="${p.team.id}" title="Reportar nombre de equipo">⚑</button>`:''}${currentState.presence?.[String(p.userId)]?.connected===false?'<span title="Desconectado">⏳</span>':''}${!p.active?'<span>☠</span>':''}</div>`).join('')}</div></section>
+  const boardMarkup = board2dFallback ? renderBoardCells() : `<div class="stadium3d-host"><iframe id="stadium3dFrame" title="Estadio AnkaraGOAT en 3D" src="/board3d/index.html?embed=1" loading="eager"></iframe></div>`;
+  const markup=`<div class="dashboard-head"><div><div class="eyebrow">SALA ${escapeHtml(currentGame.roomCode||'')} ${currentSpectator?'· ESPECTADOR':''}</div><h1>${escapeHtml(currentGame.name||'Partida')}</h1><div class="muted">👁 ${currentSpectatorCount} espectadores · Modo ${escapeHtml(currentState.settings?.questionMode||'ankara')}</div></div><div class="actions"><button class="btn ghost mobile-landscape-button" id="landscapeGame" type="button" aria-label="Ver en horizontal">↻ Vista horizontal</button><button class="btn ghost" id="toggleBoardMode">${board2dFallback?'🏟️ Tablero 3D':'Tablero 2D (compatibilidad)'}</button>${finished&&currentGame.tournamentId?'<button class="btn primary" id="returnToTournament">🏆 Ver posiciones del torneo</button>':''}<button class="btn ghost" id="leaveGame">${finished?'← Volver al vestuario':'← Salir de la partida'}</button></div></div>
+    <div id="gameAlerts">${resultBanner}${absenceBanner}</div><div class="game-grid"><div class="game-board-column"><div class="board ${board2dFallback?'':'stadium-board'}" id="board" data-game-id="${Number(currentGame.id)}">${boardMarkup}</div><div class="game-board-meta ${board2dFallback?'board-meta-2d':''}">
+      ${board2dFallback?`<section class="card turn"><div class="kicker">Turno ${currentState.turnNo||1}</div><h2>${escapeHtml(current?.username||'—')}</h2><div class="muted">${hasAbsence?'Esperando reconexión...':currentState.phase==='roll'?'Dado disponible':phaseLabel(currentState.phase)}</div></section>`:''}
+      <section class="card race-card"><div class="kicker">Tabla de carrera</div><div class="list" style="margin-top:10px">${[...(currentState.players||[])].sort((a,b)=>visualPositionFor(b)-visualPositionFor(a)).map(p=>`<div class="player-row"><span class="dot" style="background:${escapeHtml(p.team?.primaryColor||'#888')}"></span><span style="flex:1">${escapeHtml(p.username)}<small class="muted"> · ${escapeHtml(p.team?.name||'Equipo')}</small></span><b>${p.finishOrder?`#${p.finishOrder}`:`${visualPositionFor(p)}/${currentState.boardSize}`}</b>${p.userId!==me.id&&p.team?.id?`<button type="button" class="mini-report" data-report-team="${p.team.id}" title="Reportar nombre de equipo">⚑</button>`:''}${currentState.presence?.[String(p.userId)]?.connected===false?'<span title="Desconectado">⏳</span>':''}${!p.active?'<span>☠</span>':''}</div>`).join('')}</div></section></div></div><aside class="sidepanel">
       <section class="card chat-card"><div class="kicker">Chat y reacciones</div><div id="chatList" class="chat-list">${renderChatMessages()}</div><form id="chatForm" class="chat-form"><input id="chatInput" maxlength="500" ${currentState.phase==='answering'?'disabled':''} placeholder="${currentState.phase==='answering'?'Chat pausado durante la pregunta':'Escribí algo...'}"><button class="btn" ${currentState.phase==='answering'?'disabled':''}>Enviar</button></form><div class="reactions">${['⚽','🐐','🔥','😂','👏','😱','🟥','🟨'].map(r=>`<button data-reaction="${r}">${r}</button>`).join('')}</div></section>
     </aside></div>`;
+  const liveFrame = !board2dFallback && document.querySelector('#stadium3dFrame');
+  const sameGame = liveFrame && Number(document.querySelector('#board')?.dataset.gameId) === Number(currentGame.id);
+  if(sameGame){
+    // Evita destruir el iframe y volver a descargar las texturas en cada evento.
+    const draft=document.createElement('div');draft.innerHTML=markup;
+    for(const selector of ['.dashboard-head','#gameAlerts','.game-board-meta','.sidepanel']){
+      const old=app.querySelector(selector),newNode=draft.querySelector(selector);
+      if(old&&newNode)old.replaceWith(newNode);
+    }
+  }else app.innerHTML=markup;
+  syncStadiumState();
+  $('#toggleBoardMode')?.addEventListener('click',()=>{
+    if(board2dFallback&&!canRender3d){toast('Este dispositivo no admite CSS 3D.');return}
+    board2dFallback=!board2dFallback;
+    localStorage.setItem('ankara_board_compat',board2dFallback?'2d':'3d');
+    if(board2dFallback)preloadBoardVideos();
+    renderGame();
+  });
+  $('#returnToTournament')?.addEventListener('click',()=>openTournamentDetails(Number(currentGame.tournamentId)));
   $('#leaveGame').onclick=leaveCurrentGame;
+  $('#landscapeGame')?.addEventListener('click',toggleGameLandscape);
   $('#archiveGame')?.addEventListener('click',archiveCurrentGame);
   startPresenceCountdowns();
   startRollCountdown();
@@ -1771,15 +1916,20 @@ function renderGame(){
 function renderLobby(){
   setView('lobby');
   const isOrg=currentState.organizerId===me.id;
+  const isMatch=!!currentGame.matchId;const invited=(currentState.players||[]).length;const minimum=Math.floor(invited/2)+1;
+  const present=(currentState.players||[]).filter(p=>currentState.presence?.[String(p.userId)]?.connected===true).length;
+  const canStart=!isMatch||present>=minimum;
   app.innerHTML=`<div class="dashboard-head"><div><div class="eyebrow">VESTUARIO DE PARTIDA ${currentSpectator?'· ESPECTADOR':''}</div><h1>${escapeHtml(currentGame.name)}</h1></div><button class="btn ghost" id="backDash">← Salir de la vista</button></div>
-    <div class="grid two"><section class="card"><div class="kicker">Compartí este código</div><div class="room-code">${escapeHtml(currentGame.roomCode)}</div><p class="muted">Los jugadores pueden entrar con el código. Los espectadores usan “Mirar”.</p>${isOrg?'<button class="btn primary large" id="startGame" style="width:100%">Comenzar partida</button>':'<div class="empty">Esperando que el organizador inicie.</div>'}</section>
-    <section class="card"><div class="kicker">Jugadores</div><div class="list" style="margin-top:12px">${(currentState.players||[]).map((p,i)=>`<div class="list-item"><span>${escapeHtml(p.team?.crestEmoji||'⚽')} <b>${escapeHtml(p.username)}</b></span><span>${i===0?'👑':''}</span></div>`).join('')}</div><p class="help">Mínimo 2 · Máximo 8 · Modo ${escapeHtml(currentState.settings?.questionMode||'ankara')}</p></section></div>`;
+    <div class="grid two"><section class="card"><div class="kicker">Compartí este código</div><div class="room-code">${escapeHtml(currentGame.roomCode)}</div><p class="muted">Los jugadores pueden entrar con el código. Los espectadores usan “Mirar”.</p>${isMatch?`<p class="help match-quorum" role="status">Presentes: <b>${present}/${invited}</b>. Para empezar se necesitan al menos <b>${minimum}</b> jugadores (más del 50%). Al iniciar habrá 2 minutos de espera para quienes falten.</p>`:''}${isOrg?`<button class="btn primary large" id="startGame" style="width:100%" ${canStart?'':'disabled title="No se alcanzó el quórum"'}>Comenzar partida</button>`:'<div class="empty">Esperando que el organizador inicie.</div>'}</section>
+    <section class="card"><div class="kicker">Jugadores</div><div class="list" style="margin-top:12px">${(currentState.players||[]).map((p,i)=>`<div class="list-item"><span>${escapeHtml(p.team?.crestEmoji||'⚽')} <b>${escapeHtml(p.username)}</b></span><span>${isMatch?(currentState.presence?.[String(p.userId)]?.connected===true?'✅ Presente':'⏳ Ausente'):(i===0?'👑':'')}</span></div>`).join('')}</div><p class="help">Mínimo 2 · Máximo ${Number(currentState.settings?.maxPlayers||8)} · Modo ${escapeHtml(currentState.settings?.questionMode||'ankara')}</p></section></div>`;
   $('#backDash').onclick=leaveCurrentGame;
   $('#startGame')?.addEventListener('click',async()=>{try{const g=await api(`/api/games/${currentGame.id}/start`,{method:'POST',body:'{}'});currentGame=g;currentState=g.state;const event=currentSpectator?'watch_game':'join_game';socket.emit(event,{gameId:g.id});renderGame();scheduleGamePresentationCheck()}catch(e){toast(e.message)}});
 }
 
 
 function preloadBoardVideos(){
+  // Los clips de televisores sólo se usan en el tablero 2D de respaldo.
+  if(!board2dFallback)return;
   if(window.__ankaraVideoPreloadStarted)return;
   window.__ankaraVideoPreloadStarted=true;
   window.__ankaraVideoPreloads=[];
@@ -1829,11 +1979,26 @@ function cleanupCellVideo(){
 function playPendingCellVideo(pending){
   if(!currentGame||!currentState||currentState.phase!=='video_pending'||!pending?.turnToken)return;
   const key=`${currentGame.id}:${pending.turnToken}`;
-  if(activeCellVideo?.key===key&&activeCellVideo.video?.isConnected)return;
+  if(activeCellVideo?.key===key&&(activeCellVideo.video?.isConnected||activeCellVideo.timer))return;
   cleanupCellVideo();
+  if(!board2dFallback){
+    // En el estadio 3D no mostramos videos/televisores superpuestos. La fase
+    // del motor se confirma para no bloquear el juego ni la próxima pregunta.
+    const owner=Number(pending.ownerUserId||currentState.players?.[currentState.turnIndex]?.userId);
+    const mine=!currentSpectator&&owner===Number(me?.id);
+    if(pending.special)playSpecialLockerAudio();
+    const timer=setTimeout(()=>{
+      if(activeCellVideo?.key===key)activeCellVideo=null;
+      if(mine&&socket?.connected)socket.emit('cell_video_done',{
+        gameId:currentGame?.id,turnToken:pending.turnToken
+      },ack=>{if(!ack?.ok&&!/video|turno|fase/i.test(ack?.error||''))toast(ack.error)});
+    },700);
+    activeCellVideo={key,video:null,timer};
+    return;
+  }
   const destination=Number(pending.destination||currentState.pendingMove?.to||0);
   if(!destination)return;
-  const cell=document.querySelector(`.cell[data-pos="${destination}"]`);
+  const cell=document.querySelector(`.cell[data-pos="${destination}"]`) || document.querySelector('#stadiumVideoOverlay');
   if(!cell)return;
   const isFinalCell=destination===Number(currentState.boardSize||0);
   const isSpecialCell=!!pending.special&&!isFinalCell;
@@ -1902,7 +2067,7 @@ async function animatePlayersTo(targetRows){
   }
 
   const maxDistance=Math.max(0,...transitions.map(t=>t.distance));
-  const delay=500;
+  const delay=320;
 
   for(let step=1;step<=maxDistance;step++){
     let moved=false;
@@ -1961,7 +2126,7 @@ function openQuestion(q){
   let selected=null; const isCat=q.type==='categorization'; const activeId=Number(q.activeUserId||currentState?.players?.[currentState?.turnIndex]?.userId); const canAnswer=!currentSpectator&&activeId===Number(me.id);
   const activeName=playerName(activeId); const advance=Math.max(0,Number(q.potentialAdvance??((currentState?.pendingMove?.to||0)-(currentState?.pendingMove?.from||0)))||0);
   const specialInfo=q.specialPosition?`<div class="policy-box"><b>Casillero especial</b><small>${canAnswer?'Si acertás y llegás al casillero, se activará la ruleta.':`${escapeHtml(activeName)} puede activar la ruleta si acierta.`}</small></div>`:`<div class="policy-box"><b>${canAnswer?'Avance en juego':`${escapeHtml(activeName)} está respondiendo`}</b><small>${canAnswer?`Si respondés bien, avanzás <b>${advance} casillero${advance===1?'':'s'}</b>.`:'Podés ver la pregunta y el temporizador, pero sólo quien tiene el turno puede responder.'}</small></div>`;
-  modalRoot.innerHTML=`<div class="modal-backdrop" data-modal-kind="question"><div class="modal"><div class="question-meta"><span class="tier tier-${q.tier||2}">T${q.tier||2}</span><span>${isCat?'CATEGORIZACIÓN · 20 SEGUNDOS':'MÚLTIPLE CHOICE · 10 SEGUNDOS'}</span>${q.knowledgeArea?`<span>${escapeHtml(q.knowledgeArea)}</span>`:''}</div>${specialInfo}<h2>${escapeHtml(q.prompt)}</h2><div class="timer"><div id="timerBar"></div></div><div id="answerArea" class="${canAnswer?'':'read-only-question'}">${isCat?renderCategorization(q):`<div class="options">${(q.options||[]).map((o,i)=>`<button type="button" class="option" data-option="${i}" ${canAnswer?'':'disabled'}>${escapeHtml(o)}</button>`).join('')}</div>`}</div>${canAnswer?'<button class="btn primary large" id="submitAnswer" style="width:100%;margin-top:16px">Responder</button>':'<div class="empty" style="margin-top:16px">Esperando la respuesta del jugador del turno…</div>'}</div></div>`;
+  modalRoot.innerHTML=`<div class="modal-backdrop" data-modal-kind="question"><div class="modal"><div class="question-meta"><span class="tier tier-${q.tier||2}">T${q.tier||2}</span><span>${isCat?'CATEGORIZACIÓN · 20 SEGUNDOS':'MÚLTIPLE CHOICE · 10 SEGUNDOS'}</span>${q.knowledgeArea?`<span>${escapeHtml(q.knowledgeArea)}</span>`:''}</div>${specialInfo}<h2>${escapeHtml(q.prompt)}</h2>${q.questionMedia?.promptImageUrl?`<img class="question-illustration" src="${escapeHtml(q.questionMedia.promptImageUrl)}" alt="Imagen de la pregunta" loading="eager">`:``}<div class="timer"><div id="timerBar"></div></div><div id="answerArea" class="${canAnswer?'':'read-only-question'}">${isCat?renderCategorization(q):`<div class="options">${(q.options||[]).map((o,i)=>`<button type="button" class="option" data-option="${i}" ${canAnswer?'':'disabled'}>${q.questionMedia?.optionImageUrls?.[i]?`<img class="question-option-image" src="${escapeHtml(q.questionMedia.optionImageUrls[i])}" alt="Imagen de la opción ${i+1}" loading="eager">`:``}<span>${escapeHtml(o)}</span></button>`).join('')}</div>`}</div>${canAnswer?'<button class="btn primary large" id="submitAnswer" style="width:100%;margin-top:16px">Responder</button>':'<div class="empty" style="margin-top:16px">Esperando la respuesta del jugador del turno…</div>'}</div></div>`;
   if(canAnswer&&!isCat)$$('[data-option]',modalRoot).forEach(btn=>btn.onclick=()=>{$$('[data-option]',modalRoot).forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');selected=q.options[Number(btn.dataset.option)]});
   if(canAnswer&&isCat)$$('[data-cat-item]',modalRoot).forEach(x=>x.disabled=false);
   if(canAnswer)$('#submitAnswer').onclick=()=>{const answer=isCat?collectCategorization(q):selected;if(answer==null||(isCat&&Object.values(answer).some(v=>!v)))return toast('Completá la respuesta.');const button=$('#submitAnswer');button.disabled=true;socket.emit('submit_answer',{gameId:currentGame.id,questionId:q.id,turnToken:q.turnToken||currentState?.turnToken,answer},ack=>{if(!ack?.ok){toast(ack.error);button.disabled=false}})};
@@ -1969,7 +2134,7 @@ function openQuestion(q){
   const total=isCat?20000:10000; const update=()=>{const left=Math.max(0,Number(q.deadline)-Date.now());const bar=$('#timerBar');if(bar)bar.style.width=`${Math.min(100,left/total*100)}%`;if(left<=0){clearInterval(questionTick);questionTick=null;$('#submitAnswer')?.setAttribute('disabled','disabled')}}; update();questionTick=setInterval(update,200);
 }
 
-function renderCategorization(q){const categories=q.options?.categories||[],items=q.options?.items||[];return `<div>${items.map(item=>`<div class="categorize-row"><b>${escapeHtml(item)}</b><select data-cat-item="${escapeHtml(item)}"><option value="">Elegí...</option>${categories.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}</select></div>`).join('')}</div>`}
+function renderCategorization(q){const categories=q.options?.categories||[],items=q.options?.items||[];return `<div>${items.map(item=>`<div class="categorize-row"><b>${q.questionMedia?.itemImageUrls?.[item]?`<img class="question-item-image" src="${escapeHtml(q.questionMedia.itemImageUrls[item])}" alt="Imagen de ${escapeHtml(item)}">`:``}${escapeHtml(item)}</b><select data-cat-item="${escapeHtml(item)}"><option value="">Elegí...</option>${categories.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}</select></div>`).join('')}</div>`}
 function collectCategorization(){const out={};$$('[data-cat-item]',modalRoot).forEach(s=>out[s.dataset.catItem]=s.value);return out}
 
 
@@ -2030,7 +2195,7 @@ function showRouletteSpin(p){
 function showRouletteResult(p){
   stopRouletteAudioFx();
   const e=p.effect||{}; const key=rouletteEffectKey(e);
-  rouletteShell(rouletteWheelMarkup({selectedKey:key,resultText:rouletteEffectText(e),footerText:p.requiresTarget?'Esperando que el jugador elija un rival…':'El efecto se aplicó para todos en tiempo real.'}));
+  rouletteShell(rouletteWheelMarkup({selectedKey:key,resultText:rouletteEffectText(e),footerText:p.requiresTarget?'Esperando que el jugador elija un rival…':'Al terminar el aviso, todos verán el movimiento de las fichas.'}));
   applyRouletteRotation(landingRotationForKey(key),{animate:false});
   if(!p.requiresTarget)setTimeout(()=>{
     if($('[data-modal-kind="roulette"]',modalRoot))closeModal();
@@ -2155,10 +2320,16 @@ async function renderMyProfile(){
       return `<div class="list-item" style="align-items:flex-start"><span style="flex:1"><b>${escapeHtml(h.Game?.name||'Partida')}</b><br><small class="muted">${new Date(h.createdAt).toLocaleDateString()} · ${reason}</small><br><small>✓ ${h.correctAnswers} correctas · ✗ ${h.incorrectAnswers} incorrectas · ${h.accuracy}% precisión</small></span><span style="text-align:right"><b class="result-pill ${h.won?'won':'lost'}">${h.won?'GANADA':'PERDIDA'}</b><br><small class="muted">ELO ${h.eloBefore}→${h.eloAfter} (${delta>=0?'+':''}${delta})</small></span></div>`;
     }).join('');
     app.innerHTML=`${pageBanner({eyebrow:'Perfil de conocimiento', title: escapeHtml(u.Team?.name||u.username), subtitle:`Nivel <b>${u.level}</b> · ELO <b>${u.eloRating}</b> · ${u.xp} XP`, player:false, compact:true, actions:'<button class=\"btn ghost\" id=\"backDash\">← Vestuario</button>'})}
-      <div class="profile-stats-strip"><div class="chips profile-stats-chips"><span class="chip stat-win">🏆 ${summary.wins||0} ganadas</span><span class="chip stat-loss">✗ ${summary.losses||0} perdidas</span><span class="chip stat-correct">✓ ${summary.correctAnswers||0} correctas</span><span class="chip stat-incorrect">✗ ${summary.incorrectAnswers||0} incorrectas</span></div></div>
+      <div class="profile-stats-strip"><div class="profile-kpi-grid">${[['Victorias',summary.wins||0,'trophy','win'],['Derrotas',summary.losses||0,'cross-circle','loss'],['Respuestas correctas',summary.correctAnswers||0,'check-circle','correct'],['Respuestas incorrectas',summary.incorrectAnswers||0,'cross','incorrect']].map(([label,value,ico,kind])=>`<div class="profile-kpi profile-kpi-${kind}"><span class="profile-kpi-icon"><i class="fi fi-rr-${ico}" aria-hidden="true"></i></span><span class="profile-kpi-label">${label}</span><b>${value}</b></div>`).join('')}</div></div>
       <div class="grid two profile-grid"><section class="card profile-panel"><div class="kicker">Mapa de conocimiento</div><h2>¿Dónde sos fuerte?</h2><div class="knowledge-list">${(data.knowledge||[]).map(s=>`<div class="knowledge-row"><div><span>${escapeHtml(s.label)}</span><small>${s.correct}/${s.answered}</small></div><div class="knowledge-bar"><i style="width:${Math.min(100,s.accuracy)}%"></i></div><b>${Math.round(s.accuracy)}%</b></div>`).join('')||'<div class="empty">Respondé preguntas para construir tu perfil.</div>'}</div></section>
       <section class="card profile-panel history-panel"><div class="kicker">Historial</div><h2>Últimas partidas</h2><div class="list history-scroll">${historyHtml||'<div class="empty">Todavía no terminaste partidas.</div>'}</div></section></div><div class="grid two profile-grid" style="margin-top:16px"><section class="card profile-panel"><div class="kicker">Vitrina</div><h2>Trofeos</h2><div class="trophy-grid">${(data.trophies||[]).map(t=>`<div class="trophy-card"><img src="${escapeHtml(t.asset||'')}" alt="${escapeHtml(t.trophyType)}"><b>${escapeHtml(t.tournamentName||t.trophyType)}</b><small>${new Date(t.awardedAt).toLocaleDateString()}</small></div>`).join('')||'<div class="empty">Todavía no ganaste trofeos.</div>'}</div></section><section class="card profile-panel"><div class="kicker">Campeonatos</div><h2>Historial de torneos</h2><div class="list history-scroll">${(data.tournamentHistory||[]).map(t=>`<a class="list-item" href="#" data-profile-tournament="${t.tournamentId}"><span><b>${escapeHtml(t.name)}</b><br><small class="muted">${escapeHtml(t.formatLabel||formatLabel(t.format))} · ${t.participants} participantes · ${escapeHtml(t.statusLabel||t.status)}</small></span><span><b>${t.position?`${t.position}°`:'—'}</b><br><small>${escapeHtml(t.trophy?.trophyType?String(t.trophy.trophyType).replaceAll('_',' '):'')}</small></span></a>`).join('')||'<div class="empty">Sin torneos todavía.</div>'}</div></section></div>`;
+    const achievements=await api('/api/federations/achievements/global').catch(()=>[]);
+    const achievementIcon={victories:'trophy',correct_answers:'shield-check',streaks:'flame'};
+    const panel=document.createElement('section');panel.className='card';panel.style.marginTop='16px';
+    panel.innerHTML=`<div class="kicker">Logros globales</div><h2>Tu trayectoria</h2><div class="list">${achievements.map(a=>`<div class="list-item"><i class="fi fi-rr-${achievementIcon[a.family]||'trophy'}"></i><span><b>${escapeHtml(a.code.replaceAll('_',' '))}</b><br><small class="muted">${new Date(a.awardedAt).toLocaleDateString('es-AR')}</small></span></div>`).join('')||'<div class="empty">Todavía no desbloqueaste logros globales.</div>'}</div>`;
+    app.appendChild(panel);
     $$('[data-profile-tournament]').forEach(a=>a.onclick=e=>{e.preventDefault();openTournamentDetails(a.dataset.profileTournament)});
+    $('#backFederation')?.addEventListener('click',()=>{location.href=`/federaciones.html?id=${Number(t.federationId)}&tab=tournaments`;});
     $('#backDash').onclick=()=>token?renderDashboard():renderLanding();
   }catch(e){toast(e.message)}
 }
@@ -2169,6 +2340,7 @@ async function renderLeaderboard(){
   try{
     const rows=await api('/api/leaderboard');
     app.innerHTML=`${pageBanner({eyebrow:'Ranking global', title:'GOAT Ladder', subtitle:'Los auténticos cracks del conocimiento futbolero.', player:false, compact:true, actions:'<button class=\"btn ghost\" id=\"backDash\">← Vestuario</button>'})}<section class="card"><div class="list leaderboard">${rows.map((u,i)=>`<div class="list-item"><span class="rank">#${i+1}</span><span class="crest mini" style="background:${escapeHtml(u.Team?.primaryColor||'#333')}">${escapeHtml(u.Team?.crestEmoji||'⚽')}</span><span style="flex:1"><b>${escapeHtml(u.Team?.name||u.username)}</b><br><small class="muted">${escapeHtml(u.username)} · Nivel ${u.level}</small></span><b>${u.eloRating} ELO</b></div>`).join('')}</div></section>`;
+    $('#backFederation')?.addEventListener('click',()=>{location.href=`/federaciones.html?id=${Number(t.federationId)}&tab=tournaments`;});
     $('#backDash').onclick=()=>token?renderDashboard():renderLanding();
   }catch(e){toast(e.message)}
 }

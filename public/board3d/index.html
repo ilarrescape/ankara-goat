@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AnkaraGOAT · Estadio 3D offline</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar"><div class="brand">ANKARA<span>GOAT</span><small>ESTADIO 3D · PROTOTIPO OFFLINE</small></div><div class="actions"><button id="resetView">↺ Restablecer vista</button><button id="resetGame">Nueva partida</button></div></header>
+  <main>
+    <section class="viewport" id="viewport" aria-label="Estadio interactivo en tres dimensiones">
+      <div class="compass"><span>N ↑</span><span>O ← · → E</span><span>S ↓</span></div>
+      <div class="board-turn-hud" id="boardTurnHud" aria-live="polite" hidden>
+        <span class="board-turn-label" id="boardTurnLabel">TURNO 1</span>
+        <strong class="board-turn-name" id="boardTurnName">Jugador</strong>
+      </div>
+      <div class="scene" id="scene">
+        <div class="ground"></div>
+        <div class="arena" id="arena">
+          <div class="pitch" id="pitch"><div id="cells" class="board-cells" role="grid" aria-label="Casilleros del tablero"></div><div id="pieces" class="pieces"></div></div>
+          <div id="stands"></div>
+          <div id="walls"></div>
+        </div>
+      </div>
+      <div class="viewHelp">Arrastrá para girar · Rueda para acercar · Doble clic para centrar</div>
+      <div class="zoom"><button id="zoomIn" aria-label="Acercar">+</button><button id="zoomOut" aria-label="Alejar">−</button></div>
+    </section>
+    <aside class="side">
+      <div class="panel-title">PARTIDA LOCAL <span class="offline">● SIN SERVIDOR</span></div>
+      <label class="form-label" for="playerCount">Cantidad de jugadores</label>
+      <select id="playerCount"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select>
+      <label class="form-label" for="cellCount">Casilleros de la partida</label>
+      <div class="cell-count-selector"><input id="cellCount" type="range" min="30" max="70" step="1" value="30" aria-describedby="cellCountHint"><output id="cellCountValue" for="cellCount">30</output></div>
+      <div class="selector-hint" id="cellCountHint">Entre 30 y 70 · cinco por fila · el tablero se centra automáticamente.</div>
+      <div class="players" id="players"></div>
+      <div class="turn" id="turnInfo">Turno del jugador 1</div>
+      <div class="diceArea"><div class="diceStage"><div class="dice" id="dice" role="img" aria-label="Dado tridimensional">
+        <div class="face front" data-n="1"><i class="pip center"></i></div>
+        <div class="face back" data-n="6"><i class="pip tl"></i><i class="pip tr"></i><i class="pip ml"></i><i class="pip mr"></i><i class="pip bl"></i><i class="pip br"></i></div>
+        <div class="face right" data-n="3"><i class="pip tl"></i><i class="pip center"></i><i class="pip br"></i></div>
+        <div class="face left" data-n="4"><i class="pip tl"></i><i class="pip tr"></i><i class="pip bl"></i><i class="pip br"></i></div>
+        <div class="face top" data-n="2"><i class="pip tl"></i><i class="pip br"></i></div>
+        <div class="face bottom" data-n="5"><i class="pip tl"></i><i class="pip tr"></i><i class="pip center"></i><i class="pip bl"></i><i class="pip br"></i></div>
+      </div></div><div class="diceNumber" id="diceNumber">—</div><div class="diceCountdown" id="diceCountdown" aria-live="off"></div><button type="button" id="diceTap" class="diceTap" disabled aria-label="Dado bloqueado: no es tu turno" title="No es tu turno"></button></div>
+      <button id="roll" class="roll">🎲 TIRAR DADO</button>
+      <p id="status" class="status" aria-live="polite">Elegí los jugadores y tirá el dado para empezar.</p>
+      <div class="legend"><strong>Controles</strong><p>Elegí los casilleros antes del primer tiro. El dado gira en 3D y las fichas recorren el tablero en zigzag. Gana quien llega al último casillero.</p></div>
+    </aside>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

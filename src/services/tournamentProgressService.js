@@ -187,9 +187,9 @@ async function recordTournamentGame(gameId) {
     const updateAnswers=(tp,userId)=>{const st=statsByUser.get(Number(userId));if(!st)return;tp.correctAnswers+=Number(st.correctAnswers||0);tp.incorrectAnswers+=Math.max(0,Number(st.totalAnswers||0)-Number(st.correctAnswers||0));};
     const isShared=ordered.length>2&&['shared_league','group'].includes(match.stage);
     if((tournament.format==='shared_board_league'||tournament.format==='group_knockout')&&isShared){
-      for(const p of ordered){const tp=await TournamentParticipant.findOne({where:{tournamentId:tournament.id,userId:p.userId},transaction,lock:transaction.LOCK.UPDATE});if(!tp)continue;const pts=sharedBoardPoints(ordered.length,p.resolvedPosition);tp.played+=1;tp.points+=pts;tp.positionPoints+=pts;if(p.resolvedPosition===1)tp.wins+=1;else tp.losses+=1;updateAnswers(tp,p.userId);await tp.save({transaction});}
+      for(const p of ordered){const tp=await TournamentParticipant.findOne({where:{tournamentId:tournament.id,userId:p.userId},transaction,lock:transaction.LOCK.UPDATE});if(!tp)continue;const pts=p.forfeitedAt?0:sharedBoardPoints(ordered.length,p.resolvedPosition);tp.played+=1;tp.points+=pts;tp.positionPoints+=pts;if(p.resolvedPosition===1&&!p.forfeitedAt)tp.wins+=1;else tp.losses+=1;updateAnswers(tp,p.userId);await tp.save({transaction});}
     }else if(['league_1v1','group_knockout'].includes(tournament.format)&&['league','group'].includes(match.stage)){
-      for(const p of ordered.slice(0,2)){const tp=await TournamentParticipant.findOne({where:{tournamentId:tournament.id,userId:p.userId},transaction,lock:transaction.LOCK.UPDATE});if(!tp)continue;tp.played+=1;if(p.resolvedPosition===1){tp.wins+=1;tp.points+=2;}else tp.losses+=1;updateAnswers(tp,p.userId);await tp.save({transaction});}
+      for(const p of ordered.slice(0,2)){const tp=await TournamentParticipant.findOne({where:{tournamentId:tournament.id,userId:p.userId},transaction,lock:transaction.LOCK.UPDATE});if(!tp)continue;tp.played+=1;if(p.resolvedPosition===1&&!p.forfeitedAt){tp.wins+=1;tp.points+=2;}else tp.losses+=1;updateAnswers(tp,p.userId);await tp.save({transaction});}
     }else{
       for(const p of ordered.slice(1)){const tp=await TournamentParticipant.findOne({where:{tournamentId:tournament.id,userId:p.userId},transaction,lock:transaction.LOCK.UPDATE});if(tp){tp.eliminated=true;tp.eliminationReason='knockout_loss';await tp.save({transaction});}}
     }
@@ -197,4 +197,16 @@ async function recordTournamentGame(gameId) {
   });
 }
 
-module.exports={recordTournamentGame,ensureTieRows,resolvedOrderMap,relevantTie};
+// El W.O. no crea una partida ficticia ni estadísticas personales, pero sí
+// debe destrabar la llave o computar la fecha para el fixture federativo.
+async function advanceAdministrativeMatch(tournamentId,transaction){
+  const tournament=await Tournament.findByPk(tournamentId,{transaction,lock:transaction.LOCK.UPDATE});
+  if(!tournament)return;
+  const matches=await Match.findAll({where:{tournamentId},transaction,order:[['roundNo','ASC'],['slot','ASC']]});
+  const participants=await TournamentParticipant.findAll({where:{tournamentId},transaction});
+  await ensureTieRows({tournament,participants,matches,transaction});
+  await resolveFutureMatches({tournament,participants,matches,transaction});
+  await maybeFinishTournament({tournament,participants,matches,transaction});
+}
+
+module.exports={recordTournamentGame,advanceAdministrativeMatch,ensureTieRows,resolvedOrderMap,relevantTie};

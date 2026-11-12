@@ -10,16 +10,16 @@ test('estado inicial limita a 8 jugadores y crea 20-35% de casilleros especiales
  assert.throws(()=>engine.createInitialState({boardSize:40,players:players(9)}),/2 y 8/);
 });
 test('solo el jugador del turno puede tirar y el movimiento queda pendiente',()=>{
- const s=engine.createInitialState({boardSize:25,players:players(2)}); assert.throws(()=>engine.rollDice(s,2,s.turnToken),/No es tu turno/);
- s.players[0].position=20;s.currentRoll=6;s.phase='moving';s.surprises={};const m=engine.prepareMovement(s);assert.equal(m.to,25);assert.equal(s.players[0].position,20);
+ const s=engine.createInitialState({boardSize:30,players:players(2)}); assert.throws(()=>engine.rollDice(s,2,s.turnToken),/No es tu turno/);
+ s.players[0].position=25;s.currentRoll=6;s.phase='moving';s.surprises={};const m=engine.prepareMovement(s);assert.equal(m.to,30);assert.equal(s.players[0].position,25);
 });
 test('el video de casillero antecede a la pregunta y conserva el turno',()=>{
  const s=engine.createInitialState({boardSize:40,players:players(2)});s.players[0].position=5;s.currentRoll=3;s.phase='moving';s.surprises={8:{type:'roulette'}};engine.prepareMovement(s);
  assert.equal(s.phase,'video_pending');assert.equal(s.pendingVideo.destination,8);assert.equal(s.pendingVideo.special,true);const token=s.turnToken;engine.completeCellVideo(s,token);assert.equal(s.phase,'question_pending');assert.equal(s.turnToken,token);assert.equal(s.pendingVideo,null);
 });
 test('el último casillero reserva margen extendido para winner.mp4',()=>{
- const s=engine.createInitialState({boardSize:25,players:players(2)});s.players[0].position=20;s.currentRoll=6;s.phase='moving';s.surprises={};const before=Date.now();engine.prepareMovement(s);const wait=s.pendingVideo.deadline-before;assert.equal(s.pendingVideo.destination,25);assert.ok(wait>=29900&&wait<=30100,`margen final: ${wait}ms`);
- const normal=engine.createInitialState({boardSize:25,players:players(2)});normal.players[0].position=10;normal.currentRoll=2;normal.phase='moving';normal.surprises={};const beforeNormal=Date.now();engine.prepareMovement(normal);const normalWait=normal.pendingVideo.deadline-beforeNormal;assert.ok(normalWait>=9400&&normalWait<=9600,`margen normal: ${normalWait}ms`);
+ const s=engine.createInitialState({boardSize:30,players:players(2)});s.players[0].position=25;s.currentRoll=6;s.phase='moving';s.surprises={};const before=Date.now();engine.prepareMovement(s);const wait=s.pendingVideo.deadline-before;assert.equal(s.pendingVideo.destination,30);assert.ok(wait>=29900&&wait<=30100,`margen final: ${wait}ms`);
+ const normal=engine.createInitialState({boardSize:30,players:players(2)});normal.players[0].position=10;normal.currentRoll=2;normal.phase='moving';normal.surprises={};const beforeNormal=Date.now();engine.prepareMovement(normal);const normalWait=normal.pendingVideo.deadline-beforeNormal;assert.ok(normalWait>=9400&&normalWait<=9600,`margen normal: ${normalWait}ms`);
 });
 test('respuesta correcta confirma avance; incorrecta conserva posición',()=>{
  for(const correct of [true,false]){const s=engine.createInitialState({boardSize:40,players:players(2)});s.players[0].position=7;s.currentRoll=4;s.phase='moving';s.surprises={};engine.prepareMovement(s);engine.completeCellVideo(s,s.turnToken);engine.setQuestion(s,q());const r=engine.answerQuestion(s,1,correct,null,s.turnToken);assert.equal(r.movementCommitted,correct);assert.equal(s.players[0].position,correct?11:7)}
@@ -40,3 +40,61 @@ test('aplicar efecto dirigido excluye a uno mismo, eliminados y finalizados',()=
 });
 test('cada turno recibe token nuevo y un token viejo no puede actuar',()=>{const s=engine.createInitialState({boardSize:40,players:players(2)});const old=s.turnToken;s.phase='turn_end';engine.nextTurn(s);assert.notEqual(s.turnToken,old);assert.throws(()=>engine.rollDice(s,2,old),/turno cambió/i)});
 test('abandono en 1v1 da victoria al presente',()=>{const s=engine.createInitialState({boardSize:40,players:players(2)});const r=engine.forfeitPlayer(s,2);assert.equal(r.finished,true);assert.equal(s.phase,'finished');assert.equal(s.players[0].finishOrder,1)});
+
+
+test('ruleta: avanzar hasta la meta registra ganador en la misma jugada (dos jugadores)',()=>{
+ const s=engine.createInitialState({boardSize:40,players:players(2)});
+ s.players[0].position=38;
+ s.phase='roulette_spinning';
+ s.pendingRoulette={ownerUserId:1,turnToken:s.turnToken,effect:{type:'advance',amount:3},status:'spinning'};
+ const result=engine.applyRouletteEffect(s);
+ assert.equal(result.to,40);
+ assert.equal(s.players[0].finishOrder,1);
+ assert.deepEqual(s.winnerIds,[1]);
+ engine.finishRouletteTurn(s);
+ assert.equal(s.phase,'finished');
+ assert.equal(s.players[1].finishOrder,2);
+ assert.deepEqual(s.winnerIds,[1,2]);
+});
+
+test('ruleta: llegada a meta en multijugador no exige otro turno y los demás continúan',()=>{
+ const s=engine.createInitialState({boardSize:30,players:players(4)});
+ s.players[0].position=29;
+ s.phase='roulette_spinning';
+ s.pendingRoulette={ownerUserId:1,turnToken:s.turnToken,effect:{type:'advance',amount:6},status:'spinning'};
+ engine.applyRouletteEffect(s);
+ assert.equal(s.players[0].position,30);
+ assert.equal(s.players[0].finishOrder,1);
+ engine.finishRouletteTurn(s);
+ assert.equal(s.phase,'roll');
+ assert.equal(s.turnIndex,1);
+ assert.equal(s.players[0].finishOrder,1);
+ assert.equal(s.turnNo,2);
+});
+
+test('ruleta: intercambio que llega a meta premia al jugador beneficiado una vez',()=>{
+ const s=engine.createInitialState({boardSize:30,players:players(3)});
+ s.players[0].position=20;
+ s.players[1].position=30; // estado previo sin finishOrder (compatibilidad con guardados antiguos)
+ s.phase='roulette_target';
+ s.pendingRoulette={ownerUserId:1,turnToken:s.turnToken,effect:{type:'swap'},status:'target'};
+ engine.applyRouletteEffect(s,2);
+ assert.equal(s.players[0].finishOrder,1);
+ assert.equal(s.players[1].finishOrder,null);
+ assert.deepEqual(s.winnerIds,[1]);
+ engine.finishRouletteTurn(s);
+ assert.equal(s.phase,'roll');
+});
+
+test('ruleta: si no llega a meta no asigna posiciones finales',()=>{
+ const s=engine.createInitialState({boardSize:30,players:players(3)});
+ s.players[0].position=8;
+ s.phase='roulette_spinning';
+ s.pendingRoulette={ownerUserId:1,turnToken:s.turnToken,effect:{type:'advance',amount:2},status:'spinning'};
+ engine.applyRouletteEffect(s);
+ assert.equal(s.players[0].position,10);
+ assert.equal(s.players[0].finishOrder,null);
+ assert.deepEqual(s.winnerIds,[]);
+ engine.finishRouletteTurn(s);
+ assert.equal(s.phase,'roll');
+});

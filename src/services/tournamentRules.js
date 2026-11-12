@@ -85,6 +85,8 @@ function trophyAsset(format, tier) {
 function validateTournamentSettings(format, participantCount, settings = {}) {
   const count = Number(participantCount);
   if (!Number.isInteger(count)) throw new Error('La cantidad de participantes es inválida.');
+  const maxPlayers=Number(settings.maxPlayersPerBoard??8);
+  if(!Number.isInteger(maxPlayers)||maxPlayers<2||maxPlayers>8)throw new Error('El máximo de jugadores del tablero debe ser de 2 a 8.');
 
   if (format === 'cup') {
     if (!CUP_SIZES.includes(count)) throw new Error('La copa de eliminación directa admite únicamente 4, 8, 16, 32 o 64 participantes.');
@@ -98,6 +100,7 @@ function validateTournamentSettings(format, participantCount, settings = {}) {
 
   if (format === 'shared_board_league') {
     if (count < 4 || count > 8) throw new Error('La liga en tablero compartido admite entre 4 y 8 participantes.');
+    if(count>maxPlayers)throw new Error('El cupo supera el máximo de jugadores configurado para el tablero.');
     const matchCount = Number(settings.matchCount || 3);
     if (!Number.isInteger(matchCount) || matchCount < 3 || matchCount > 10) throw new Error('Cada participante debe tener al menos 3 partidas puntuables; configurá entre 3 y 10 fechas.');
     return { ...settings, matchCount, maxParticipants: count };
@@ -116,6 +119,7 @@ function validateTournamentSettings(format, participantCount, settings = {}) {
     if (![2, 4, 8, 16].includes(totalQualifiers)) throw new Error('La fase eliminatoria debe recibir 2, 4, 8 o 16 clasificados.');
     const groupMode = variant.groupSize <= 8 ? String(settings.groupMode || '1v1') : '1v1';
     if (!['1v1', 'shared'].includes(groupMode)) throw new Error('Modalidad de grupo inválida.');
+    if(groupMode==='shared'&&variant.groupSize>maxPlayers)throw new Error('El grupo supera el máximo de jugadores del tablero.');
     let groupMatchCount = null;
     if (groupMode === 'shared') {
       groupMatchCount = Number(settings.groupMatchCount || 3);

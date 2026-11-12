@@ -10,9 +10,9 @@ function extensionFromMime(mime) {
   return ({ 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' })[mime] || '';
 }
 
-async function uploadLocal(buffer, mimeType, userId) {
+async function uploadLocal(buffer, mimeType, userId, category = 'crest') {
   const ext = extensionFromMime(mimeType) || '.bin';
-  const key = `crest-${userId}-${crypto.randomUUID()}${ext}`;
+  const key = `${category}-${userId}-${crypto.randomUUID()}${ext}`;
   const dir = path.join(__dirname, '..', '..', 'public', 'uploads');
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, key), buffer);
@@ -34,11 +34,11 @@ function r2Config() {
   };
 }
 
-async function uploadR2(buffer, mimeType, userId) {
+async function uploadR2(buffer, mimeType, userId, category = 'crest') {
   const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
   const cfg = r2Config();
   const ext = extensionFromMime(mimeType) || '.bin';
-  const key = `crests/user-${userId}/${crypto.randomUUID()}${ext}`;
+  const key = `${category === 'crest' ? 'crests' : category}/user-${userId}/${crypto.randomUUID()}${ext}`;
   const client = new S3Client({
     region: 'auto',
     endpoint: cfg.endpoint,
@@ -61,4 +61,37 @@ async function uploadCrest(buffer, mimeType, userId) {
   return uploadLocal(buffer, mimeType, userId);
 }
 
-module.exports = { uploadCrest, provider, r2Config };
+function hasImageSignature(buffer,mime){
+  if(!Buffer.isBuffer(buffer))return false;
+  if(mime==='image/png')return buffer.length>=8&&buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+  if(mime==='image/jpeg')return buffer.length>=3&&buffer[0]===255&&buffer[1]===216&&buffer[2]===255;
+  if(mime==='image/webp')return buffer.length>=12&&buffer.toString('ascii',0,4)==='RIFF'&&buffer.toString('ascii',8,12)==='WEBP';
+  return false;
+}
+async function uploadIllustration(buffer,mimeType,userId,category){
+  if(!['questions','trophies','tournament-banners'].includes(category))throw new Error('Tipo de recurso inválido.');
+  if(!buffer?.length||buffer.length>2*1024*1024)throw new Error('La imagen debe pesar entre 1 byte y 2 MB.');
+  if(!hasImageSignature(buffer,mimeType))throw new Error('Se admite únicamente PNG, JPG o WebP válido.');
+  return provider()==='r2'?uploadR2(buffer,mimeType,userId,category):uploadLocal(buffer,mimeType,userId,category);
+}
+function safeImageUrl(value){
+  const url=String(value||'').trim();
+  if(!url)return null;
+  if(url.length>1000||(!/^https:\/\/[^\s<>"']+$/i.test(url)&&!/^\/uploads\/[a-zA-Z0-9_.-]+$/.test(url)))throw new Error('Imagen: utilizá una URL HTTPS válida o subí una imagen.');
+  return url;
+}
+function normalizeQuestionMedia(value){
+  if(value==null)return null;
+  if(typeof value!=='object'||Array.isArray(value))throw new Error('Imágenes de pregunta inválidas.');
+  const source=Array.isArray(value.optionImageUrls)?value.optionImageUrls:[];
+  if(source.length>4)throw new Error('Sólo se admiten imágenes para cuatro respuestas.');
+  const itemImages={};
+  if(value.itemImageUrls!=null){
+    if(typeof value.itemImageUrls!=='object'||Array.isArray(value.itemImageUrls))throw new Error('Imágenes de elementos inválidas.');
+    const keys=Object.keys(value.itemImageUrls);if(keys.length>30)throw new Error('Demasiadas imágenes de elementos.');
+    for(const key of keys){if(key.length>160)throw new Error('Nombre de elemento demasiado largo.');const url=safeImageUrl(value.itemImageUrls[key]);if(url)itemImages[key]=url;}
+  }
+  const data={promptImageUrl:safeImageUrl(value.promptImageUrl),optionImageUrls:Array.from({length:4},(_,i)=>safeImageUrl(source[i])),itemImageUrls:itemImages};
+  return data.promptImageUrl||data.optionImageUrls.some(Boolean)||Object.keys(data.itemImageUrls).length?data:null;
+}
+module.exports = { uploadCrest, uploadIllustration, normalizeQuestionMedia, safeImageUrl, provider, r2Config };

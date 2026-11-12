@@ -25,6 +25,8 @@ const publicShareRoutes = require('./routes/publicShareRoutes');
 const { getPublicMatchByCode, getPublicTournamentByCode } = require('./services/publicShareService');
 const { applyEloDecayBatch } = require('./services/eloService');
 const gameSocket = require('./sockets/gameSocket');
+const federationRoutes=require('./routes/federationRoutes');
+const {refreshInactivity}=require('./services/federationService');
 
 if (!process.env.JWT_SECRET) {
   console.error('Falta JWT_SECRET en variables de entorno.');
@@ -44,7 +46,7 @@ const io = new Server(server, {
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '3mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 function escapeMeta(value) {
@@ -114,6 +116,7 @@ app.use('/api/questions', questionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/moderation', moderationRoutes);
 app.use('/api/rules', rulesRoutes);
+app.use('/api/federations', federationRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -138,11 +141,14 @@ const port = Number(process.env.PORT || 3000);
 (async () => {
   try {
     await sequelize.authenticate();
-    const shouldAutoMigrate = process.env.AUTO_MIGRATE === 'true' || process.env.NODE_ENV !== 'production';
+    // Nunca modificar la estructura de datos sin una activación explícita.
+    const shouldAutoMigrate = process.env.AUTO_MIGRATE === 'true';
     if (shouldAutoMigrate) await runMigrations();
     await configureRedisAdapter();
     gameSocket(io);
     applyEloDecayBatch().catch(err=>console.error('[elo decay]',err.message));
+    refreshInactivity().catch(err=>console.error('[federation inactivity]',err.message));
+    setInterval(()=>refreshInactivity().catch(err=>console.error('[federation inactivity]',err.message)), 24*60*60*1000).unref();
     setInterval(()=>applyEloDecayBatch().catch(err=>console.error('[elo decay]',err.message)), 60*60*1000).unref();
     server.listen(port, '0.0.0.0', () => console.log(`Ankara GOAT escuchando en puerto ${port}`));
   } catch (e) {

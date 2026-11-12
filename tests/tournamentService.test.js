@@ -1,7 +1,7 @@
 const test=require('node:test');const assert=require('node:assert/strict');
 const {validateBoardSize,roundRobin,league1v1Schedule,sharedBoardSchedule,sharedBoardPoints,groupKnockoutSchedule,cupSchedule}=require('../src/services/tournamentService');
 const ids=n=>Array.from({length:n},(_,i)=>i+1);
-test('tablero acepta 25..70 de 5 en 5',()=>{[25,30,40,70].forEach(validateBoardSize);[20,26,71].forEach(n=>assert.throws(()=>validateBoardSize(n)))});
+test('tablero acepta todos los enteros de 30 a 70',()=>{for(let n=30;n<=70;n++)validateBoardSize(n);[20,25,29,70.5,71].forEach(n=>assert.throws(()=>validateBoardSize(n)))});
 test('round robin cubre cada par una vez',()=>{const m=roundRobin(ids(6)).filter(x=>x.status!=='bye');assert.equal(m.length,15);assert.equal(new Set(m.map(x=>[...x.participants].sort((a,b)=>a-b).join('-'))).size,15)});
 test('liga 1v1 admite 4 a 30',()=>{assert.ok(league1v1Schedule(ids(4)).length);assert.ok(league1v1Schedule(ids(30)).length);assert.throws(()=>league1v1Schedule(ids(3)));assert.throws(()=>league1v1Schedule(ids(31)))});
 test('tablero compartido exige 4-8 y mínimo tres fechas',()=>{assert.equal(sharedBoardSchedule(ids(4),3).length,3);assert.throws(()=>sharedBoardSchedule(ids(3),3));assert.throws(()=>sharedBoardSchedule(ids(8),2))});

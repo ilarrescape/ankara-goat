@@ -40,8 +40,101 @@ const Tournament = sequelize.define('Tournament', {
   accessCode: { type: DataTypes.STRING(12), allowNull: true, unique: true },
   shareCode: { type: DataTypes.STRING(24), allowNull: true, unique: true },
   boardSize: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 40 },
-  settings: { type: DataTypes.JSON, allowNull: false, defaultValue: {} }
+  settings: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+  federationCategory: { type: DataTypes.STRING(80), allowNull: true },
+  federationScope: { type: DataTypes.ENUM('federative','interfederative','classic'), allowNull: true },
+  trophyImageUrl: { type: DataTypes.STRING(1000), allowNull: true },
+  seasonNumber: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 1 }
 });
+
+// Federaciones: la membresía es independiente del rol global de moderación.
+const Federation = sequelize.define('Federation', {
+  id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
+  name: { type: DataTypes.STRING(100), allowNull: false },
+  slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+  description: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+  crestUrl: { type: DataTypes.STRING(500), allowNull: true },
+  bannerUrl: { type: DataTypes.STRING(500), allowNull: true },
+  bannerPositionX: { type: DataTypes.DECIMAL(5,1), allowNull: false, defaultValue: 50 },
+  bannerPositionY: { type: DataTypes.DECIMAL(5,1), allowNull: false, defaultValue: 50 },
+  isPublic: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  requiresApproval: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  categories: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+  inviteCode: { type: DataTypes.STRING(24), allowNull: false, unique: true },
+  manifesto: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+  manifestoVersion: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 1 },
+  status: { type: DataTypes.ENUM('active','suspended','archived'), allowNull: false, defaultValue: 'active' },
+  lastActivityAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
+}, {tableName:'federations'});
+
+const FederationMember = sequelize.define('FederationMember', {
+  id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
+  role: { type: DataTypes.ENUM('president','secretary','member'), allowNull: false, defaultValue: 'member' },
+  status: { type: DataTypes.ENUM('pending','active','rejected'), allowNull: false, defaultValue: 'active' },
+  permissions: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+  joinedAt: { type: DataTypes.DATE, allowNull: true }
+}, {tableName:'federation_members',indexes:[{unique:true,fields:['federation_id','user_id']}] });
+
+const FederationKnowledge = sequelize.define('FederationKnowledge', {
+  id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
+  title: { type: DataTypes.STRING(180), allowNull: false },
+  url: { type: DataTypes.STRING(1000), allowNull: false },
+  category: { type: DataTypes.STRING(80), allowNull: true },
+  version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 1 },
+  active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true }
+}, {tableName:'federation_knowledges'});
+
+const FederationRevision = sequelize.define('FederationRevision', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  kind: { type: DataTypes.ENUM('question','knowledge','manifesto'), allowNull: false },
+  entityId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+  version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+  snapshot: { type: DataTypes.JSON, allowNull: false }
+}, {tableName:'federation_revisions'});
+
+const FederationProposal = sequelize.define('FederationProposal', {
+  id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
+  payload: { type: DataTypes.JSON, allowNull: false },
+  status: { type: DataTypes.ENUM('pending','approved','rejected'), allowNull: false, defaultValue: 'pending' }
+}, {tableName:'federation_proposals'});
+
+const FederationChallenge = sequelize.define('FederationChallenge', {
+  id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
+  kind: { type: DataTypes.ENUM('interfederative','classic'), allowNull: false, defaultValue: 'interfederative' },
+  terms: { type: DataTypes.JSON, allowNull: false },
+  status: { type: DataTypes.ENUM('pending','accepted','rejected','finished'), allowNull: false, defaultValue: 'pending' },
+  result: { type: DataTypes.JSON, allowNull: true }
+}, {tableName:'federation_challenges'});
+
+const FederationEvent = sequelize.define('FederationEvent', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  kind: { type: DataTypes.STRING(40), allowNull: false },
+  message: { type: DataTypes.STRING(500), allowNull: false },
+  payload: { type: DataTypes.JSON, allowNull: false, defaultValue: {} }
+}, {tableName:'federation_events'});
+
+const FederationNotification = sequelize.define('FederationNotification', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  readAt: { type: DataTypes.DATE, allowNull: true }
+}, {tableName:'federation_notifications'});
+
+const FederationAttendance = sequelize.define('FederationAttendance', {
+  id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
+  scheduledAt: { type: DataTypes.DATE, allowNull: false },
+  invitedIds: { type: DataTypes.JSON, allowNull: false },
+  presentIds: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+  reprogramCount: { type: DataTypes.TINYINT.UNSIGNED, allowNull: false, defaultValue: 0 },
+  resolution: { type: DataTypes.JSON, allowNull: true }
+}, {tableName:'federation_attendances'});
+
+const FederationAchievement = sequelize.define('FederationAchievement', {
+  id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  scopeKey: {type:DataTypes.STRING(40),allowNull:false,defaultValue:'global'},
+  family: { type: DataTypes.ENUM('victories','correct_answers','streaks'), allowNull: false },
+  code: { type: DataTypes.STRING(60), allowNull: false },
+  value: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+  awardedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
+}, {tableName:'federation_achievements',indexes:[{unique:true,fields:['scope_key','user_id','code']}]});
 
 const TournamentParticipant = sequelize.define('TournamentParticipant', {
   id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
@@ -99,6 +192,7 @@ const Question = sequelize.define('Question', {
   prompt: { type: DataTypes.STRING(500), allowNull: false },
   options: { type: DataTypes.JSON, allowNull: true },
   correctAnswer: { type: DataTypes.JSON, allowNull: false },
+  questionMedia: { type: DataTypes.JSON, allowNull: true },
   category: { type: DataTypes.STRING(80), allowNull: true },
   competition: { type: DataTypes.STRING(80), allowNull: true },
   knowledgeArea: { type: DataTypes.STRING(100), allowNull: true },
@@ -108,6 +202,7 @@ const Question = sequelize.define('Question', {
   version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 1 },
   reviewedAt: { type: DataTypes.DATE, allowNull: true },
   active: { type: DataTypes.BOOLEAN, defaultValue: true },
+  deletedAt: { type: DataTypes.DATE, allowNull: true },
   lastUsedAt: { type: DataTypes.DATE, allowNull: true },
   timesShown: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
   answerCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
@@ -116,6 +211,7 @@ const Question = sequelize.define('Question', {
 
 const GameQuestion = sequelize.define('GameQuestion', {
   id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
+  questionSnapshot: {type:DataTypes.JSON,allowNull:true},
   answeredCorrectly: { type: DataTypes.BOOLEAN, allowNull: true },
   answeredAt: { type: DataTypes.DATE, allowNull: true },
   responseTimeMs: { type: DataTypes.INTEGER.UNSIGNED, allowNull: true },
@@ -286,8 +382,43 @@ ModerationReport.belongsTo(User, { as: 'resolver', foreignKey: 'resolvedById' })
 ModerationAction.belongsTo(User, { as: 'moderator', foreignKey: 'moderatorId' });
 ModerationAction.belongsTo(User, { as: 'targetUser', foreignKey: 'targetUserId' });
 
+Federation.belongsTo(User, {as:'president',foreignKey:{name:'presidentId',allowNull:false}});
+Federation.hasMany(FederationMember, {foreignKey:'federationId',onDelete:'CASCADE'});
+FederationMember.belongsTo(Federation, {foreignKey:'federationId'});
+FederationMember.belongsTo(User, {foreignKey:'userId'});
+User.hasMany(FederationMember, {foreignKey:'userId'});
+Federation.hasMany(FederationKnowledge, {foreignKey:'federationId',onDelete:'CASCADE'});
+FederationKnowledge.belongsTo(Federation, {foreignKey:'federationId'});
+FederationKnowledge.belongsTo(Tournament, {foreignKey:'tournamentId'});
+FederationKnowledge.belongsTo(User, {as:'author',foreignKey:'authorId'});
+Federation.hasMany(FederationRevision, {foreignKey:'federationId',onDelete:'CASCADE'});
+FederationRevision.belongsTo(User, {as:'editor',foreignKey:'editorId'});
+Federation.hasMany(FederationProposal, {foreignKey:'federationId',onDelete:'CASCADE'});
+FederationProposal.belongsTo(User, {as:'proposer',foreignKey:'proposerId'});
+FederationProposal.belongsTo(Tournament, {foreignKey:'tournamentId'});
+FederationChallenge.belongsTo(Federation, {as:'challenger',foreignKey:'challengerId'});
+FederationChallenge.belongsTo(Federation, {as:'challenged',foreignKey:'challengedId'});
+FederationChallenge.belongsTo(User, {as:'creator',foreignKey:'createdById'});
+FederationChallenge.belongsTo(Tournament, {foreignKey:'tournamentId'});
+FederationEvent.belongsTo(Federation, {foreignKey:'federationId'});
+FederationEvent.belongsTo(User, {as:'actor',foreignKey:'actorId'});
+FederationNotification.belongsTo(FederationEvent, {foreignKey:'eventId'});
+FederationNotification.belongsTo(User, {foreignKey:'userId'});
+FederationNotification.belongsTo(Federation, {foreignKey:'federationId'});
+FederationAttendance.belongsTo(Federation, {foreignKey:'federationId'});
+FederationAttendance.belongsTo(Match, {foreignKey:'matchId'});
+FederationAchievement.belongsTo(User, {foreignKey:'userId'});
+FederationAchievement.belongsTo(Federation, {foreignKey:'federationId'});
+Federation.hasMany(Tournament, {foreignKey:'federationId'});
+Tournament.belongsTo(Federation, {foreignKey:'federationId'});
+Federation.hasMany(Question, {foreignKey:'federationId'});
+Question.belongsTo(Federation, {foreignKey:'federationId'});
+Question.belongsTo(User, {as:'federationAuthor',foreignKey:'federationAuthorId'});
+
 module.exports = {
   sequelize, User, Team, Tournament, TournamentParticipant, TournamentInvitation,
   Match, Game, Question, GameQuestion, QuestionReport, UserKnowledgeStat,
-  PlayerGameStat, GameChatMessage, StandingsTiebreak, UserTrophy, RouletteEvent, ModerationReport, ModerationAction
+  PlayerGameStat, GameChatMessage, StandingsTiebreak, UserTrophy, RouletteEvent, ModerationReport, ModerationAction,
+  Federation,FederationMember,FederationKnowledge,FederationRevision,FederationProposal,
+  FederationChallenge,FederationEvent,FederationNotification,FederationAttendance,FederationAchievement
 };

@@ -1,10 +1,11 @@
 const jwt = require('jsonwebtoken');
-const { Game, Question, GameQuestion, GameChatMessage, User, RouletteEvent, TournamentParticipant } = require('../models');
+const { Game, Question, GameQuestion, GameChatMessage, User, RouletteEvent, TournamentParticipant,Tournament } = require('../models');
 const { withLockedGame } = require('../services/gameStore');
 const engine = require('../services/gameEngine');
 const { drawQuestion, isCorrect } = require('../services/questionService');
 const { updateKnowledgeForAnswer } = require('../services/knowledgeService');
 const { finalizeGameStats } = require('../services/rankingService');
+const {refreshAchievementsForGame,recordFederationEvent}=require('../services/federationService');
 const { recordTournamentGame } = require('../services/tournamentProgressService');
 const {
   startQuestionTimeoutWorker, scheduleQuestionTimeout, cancelQuestionTimeout,
@@ -14,6 +15,7 @@ const {
   startCellVideoTimeoutWorker, scheduleCellVideoTimeout, cancelCellVideoTimeout
 } = require('../services/timerService');
 const { validateChatMessage, assertUserCanChat } = require('../services/contentModeration');
+const { ensureFriendlyMembership } = require('../services/federationFriendlies');
 
 const PLAYER_RECONNECT_GRACE_MS = 60_000;
 const RESULT_DISPLAY_MS = 7_000;
@@ -117,6 +119,16 @@ async function finalizeFinishedGame(io, gameId) {
     return null;
   });
   if (progress) io.to(`game:${gameId}`).emit('tournament_updated', progress);
+  if(progress?.tournamentId){
+    const tournament=await Tournament.findByPk(progress.tournamentId).catch(()=>null);
+    if(tournament?.federationId){
+      const finished=tournament.status==='finished';
+      await recordFederationEvent(tournament.federationId,finished?'champion':'result',
+        finished?`Terminó el torneo ${tournament.name}. ¡Tenemos campeón!`:`Se registró un resultado de ${tournament.name}.`,
+        null,{tournamentId:tournament.id,gameId}).catch(error=>console.error('[federation feed]',error));
+    }
+  }
+  await refreshAchievementsForGame(gameId).catch(error=>console.error('[achievements]',error));
   return { ranking, progress };
 }
 
@@ -130,9 +142,14 @@ async function markPlayerConnected(io, gameId, userId) {
     if (game.status === 'running' && (!player.active || player.forfeitedAt)) {
       throw new Error('Ya perdiste esta partida por abandono.');
     }
+    if(game.status === 'lobby'){
+      state.presence[String(userId)]={connected:true,joinedAt:Date.now()};
+      return;
+    }
     if (game.status === 'running' && player.active && presence?.connected === false) {
       if (Number(presence.graceDeadline) <= Date.now()) throw new Error('El minuto para volver a entrar ya venció.');
       delete state.presence[String(userId)];
+      engine.resumeTurnOnReconnect(state,userId);
       rejoined = true;
     }
   });
@@ -145,7 +162,13 @@ async function markPlayerConnected(io, gameId, userId) {
 
 async function markPlayerAway(io, gameId, userId, reason = 'disconnect') {
   let absence = null;
+  let cancelledQuestionId=null;
   const saved = await withLockedGame(gameId, (state, game) => {
+    if(game.status==='lobby'){
+      state.presence=state.presence||{};
+      state.presence[String(userId)]={connected:false,disconnectedAt:Date.now()};
+      return;
+    }
     if (game.status !== 'running') return;
     const player = state.players?.find(p => Number(p.userId) === Number(userId));
     if (!player || !player.active || player.finishOrder != null || player.forfeitedAt) return;
@@ -164,8 +187,18 @@ async function markPlayerAway(io, gameId, userId, reason = 'disconnect') {
       reason
     };
     state.presence[key] = absence;
+    // En tableros multijugador se continúa sin esperar al ausente:
+    // la pregunta/ruleta de su turno no debe bloquear a los presentes.
+    const current=state.players?.[state.turnIndex];
+    if(state.players?.length>2 && Number(current?.userId)===Number(userId) && state.phase!=='finished'){
+      cancelledQuestionId=Number(state.currentQuestion?.id||0)||null;
+      state.currentQuestion=null;state.currentRoll=null;state.pendingMove=null;
+      state.pendingVideo=null;state.pendingSurprise=null;state.pendingRoulette=null;
+      state.resultPending=null;state.phase='turn_end';engine.nextTurn(state);
+    }
   });
-  if (!absence) return null;
+  if (!absence){if(saved.game.status==='lobby')await loadAndEmitState(io,gameId);return null;}
+  if(cancelledQuestionId)await cancelQuestionTimeout(gameId,cancelledQuestionId).catch(()=>{});
   await schedulePlayerAbsenceTimeout({ gameId, userId, deadline: absence.graceDeadline });
   const player = saved.state.players?.find(p => Number(p.userId) === Number(userId));
   io.to(`game:${gameId}`).emit('player_disconnected', {
@@ -337,7 +370,8 @@ async function resolveAnswer(
   if (expectedQuestionId && Number(expectedQuestionId) !== questionId) throw new Error('La pregunta ya cambió.');
   if (!timeout && (!turnToken || state.turnToken !== turnToken)) throw new Error('El turno cambió. La respuesta fue descartada.');
 
-  const question = await Question.findByPk(questionId);
+  const drawnSnapshot=await GameQuestion.findOne({where:{gameId,questionId},attributes:['questionSnapshot']});
+  const question = drawnSnapshot?.questionSnapshot || await Question.findByPk(questionId);
   if (!question) throw new Error('Pregunta inexistente.');
   const correct = timeout ? false : isCorrect(question, submittedAnswer);
 
@@ -599,6 +633,7 @@ async function recoverPendingResultReveals() {
 async function canWatch(gameId, userId) {
   const game = await Game.findByPk(gameId);
   if (!game) throw new Error('Partida inexistente.');
+  await ensureFriendlyMembership(game,userId);
   const participant = game.state?.players?.find(p => Number(p.userId) === Number(userId));
   const isPlayer = !!participant && game.status !== 'running' ? true : !!participant && participant.active !== false && !participant.forfeitedAt;
   if (!isPlayer && !game.spectatorsAllowed) throw new Error('Esta partida no admite espectadores.');
@@ -663,6 +698,7 @@ function gameSocket(io) {
           throw new Error('No pertenecés a esta partida.');
         }
 
+        await ensureFriendlyMembership(game,socket.user.id);
         const connected = await markPlayerConnected(io, game.id, socket.user.id);
         socket.join(`game:${game.id}`);
         socket.data.gameId = game.id;
@@ -732,7 +768,7 @@ function gameSocket(io) {
         const id = assertActionSocket(socket, gameId);
         const saved = await withLockedGame(id, (state, game) => {
           if (game.status !== 'running') throw new Error('La partida no está activa.');
-          if (engine.hasPendingAbsence(state)) throw new Error('La partida está en pausa mientras un jugador tiene 60 segundos para reconectarse.');
+          if (state.players?.length===2 && engine.hasPendingAbsence(state)) throw new Error('El rival tiene un minuto para reconectarse.');
           const roll = engine.rollDice(state, socket.user.id, turnToken);
           const movement = engine.prepareMovement(state);
           return { roll, movement, turnToken: state.turnToken, turnNo: state.turnNo };

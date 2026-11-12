@@ -3275,3 +3275,118 @@ body[data-view="landing"] .home-stage::after{display:none!important}
   .eyebrow-row{flex-wrap:wrap;gap:8px}
   .team-card .team-badge{margin-top:16px}
 }
+/* Estadio 3D: el iframe mantiene su estado entre actualizaciones del marcador. */
+.board.stadium-board{display:block;position:relative;min-height:560px;padding:0;overflow:hidden;background:#06110d;border:2px solid #739359}
+.stadium3d-host{position:relative;width:100%;height:clamp(500px,66vh,820px)}
+.stadium3d-host iframe{width:100%;height:100%;display:block;border:0;background:#08140d}
+#stadiumVideoOverlay{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center}
+#stadiumVideoOverlay .cell-landing-video{position:relative!important;width:min(80%,480px)!important;height:auto!important;max-height:90%;object-fit:contain;z-index:10}
+@media(max-width:700px){.board.stadium-board{min-height:400px}.stadium3d-host{height:60vh;min-height:400px}}
+
+/* =========================================================
+   TABLERO V1.1 — cambios de diseño sólo en la página de juego
+   Mobile mantiene su distribución; escritorio aprovecha más espacio.
+   ========================================================= */
+.mobile-landscape-button{display:none}
+.game-board-column{min-width:0}
+.game-board-meta{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:14px;margin-top:14px;align-items:start}
+.game-board-meta>.card{min-width:0;margin:0}
+.game-board-meta .turn{height:100%;display:flex;flex-direction:column;justify-content:center}
+@media (min-width:901px) and (pointer:fine){
+  body[data-view='game'] .shell{width:min(1426px,100%);padding:24px 18px 70px;font-size:1.08rem}
+  body[data-view='game'] .game-grid{grid-template-columns:minmax(0,1fr) 272px;gap:14px}
+  body[data-view='game'] .stadium3d-host{height:clamp(660px,77vh,940px)}
+  body[data-view='game'] .board.stadium-board{min-height:660px}
+  body[data-view='game'] .sidepanel{align-content:start}
+  body[data-view='game'] .sidepanel .chat-card{min-width:0}
+}
+@media (max-width:900px), (pointer:coarse){
+  body[data-view='game'] .game-board-meta{grid-template-columns:1fr}
+  body[data-view='game'] .mobile-landscape-button{display:inline-flex}
+}
+#app:fullscreen{width:100%;max-width:none;height:100%;overflow:auto;padding:12px;background:#07120e}
+#app:fullscreen .stadium3d-host{height:min(68vh,680px)}
+
+/* TABLERO V1.2 — tabla de posiciones ocupa toda la franja inferior del estadio.
+   El modo 2D conserva la tarjeta de turnos para no perder ese dato. */
+body[data-view='game'] .game-board-meta:not(.board-meta-2d){display:block;width:100%}
+body[data-view='game'] .game-board-meta .race-card{width:100%;min-width:0}
+body[data-view='game'] .social-share-item .social-brand-icon,
+.share-social-btn .social-brand-icon{width:24px;height:24px;flex:0 0 24px;display:block;object-fit:contain}
+
+/* Sólo fondo fijo: se eliminó la carga del video de fondo del vestuario. */
+body .stadium-bg-image{opacity:1!important;visibility:visible!important}
+body .stadium-bg-video{display:none!important}
+
+/* Ilustraciones de preguntas: sólo cuando una pregunta contiene imágenes. */
+.question-illustration{display:block;width:100%;max-width:440px;max-height:230px;object-fit:contain;margin:8px auto 14px;border-radius:10px;background:rgba(0,0,0,.22)}
+.question-option-image{width:70px;height:60px;object-fit:contain;flex-shrink:0;border-radius:8px;background:rgba(0,0,0,.2)}
+#answerArea .option:has(.question-option-image){display:flex;align-items:center;gap:12px;text-align:left;min-height:78px}
+.question-item-image{display:inline-block;vertical-align:middle;width:42px;height:42px;object-fit:contain;margin-right:9px;border-radius:6px}
+@media(max-width:640px){.question-option-image{width:48px;height:46px}.question-illustration{max-height:180px}}
+
+/* Trofeo individual por temporada, destacado en la zona derecha del torneo. */
+.page-banner.tournament-banner-has-trophy{min-height:220px;padding-right:28px}
+.tournament-banner-has-trophy .page-banner-copy{max-width:67%}
+.tournament-banner-trophy{position:absolute;right:clamp(12px,6vw,80px);top:-22px;height:calc(100% + 45px);width:min(31%,290px);object-fit:contain;object-position:center;filter:drop-shadow(0 12px 13px rgba(0,0,0,.68));pointer-events:none}
+.trophy-editor-preview{display:grid;place-items:center;max-height:200px;min-height:120px;margin:10px auto 18px}
+.trophy-editor-preview img{max-width:190px;max-height:185px;object-fit:contain}
+@media(max-width:680px){.tournament-banner-has-trophy .page-banner-copy{max-width:80%}.tournament-banner-trophy{right:0;top:-9px;height:155px;width:110px;opacity:.85}.page-banner.tournament-banner-has-trophy{min-height:235px}}
+
+/* 08/11: resultados por fase, regreso al torneo y cierre de campeones */
+.match-round-row{border-left:4px solid rgba(183,215,185,.5);background:rgba(6,20,16,.76)}
+.match-round-row.stage-group{border-color:#58cd7c}.match-round-row.stage-round16{border-color:#ffdf60}
+.match-round-row.stage-quarter{border-color:#ffa347}.match-round-row.stage-semi{border-color:#5c9ff7}.match-round-row.stage-final{border-color:#f4656d}
+.match-round-row small{color:#e5ede7;line-height:1.75}.match-versus{font-size:11px;opacity:.7;padding:0 4px}.match-position{color:#f7c651}
+.champion-status-pill{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;font-weight:900;font-size:15px;border-radius:12px;white-space:nowrap}
+.champion-first{color:#ffe188;background:rgba(112,76,4,.62);border:3px solid #f6c651}.champion-second{color:#d9dde2;background:rgba(66,71,79,.62);border:2px solid #959ca7}
+.match-quorum{padding:10px;background:#172a1ecf;border:1px solid #a6bd86;border-radius:9px}.match-quorum b{color:#f7c651}
+.champion-cinematic-modal .presentation-close{z-index:999;top:10px;right:10px;pointer-events:auto;background:rgba(5,16,13,.88);border:1px solid #cbd4c6}
+.champion-cinematic-modal .match-podium{gap:8px;max-width:85%;margin-inline:auto}.champion-cinematic-modal .podium-entry{padding:9px!important;min-width:0}
+.champion-cinematic-modal .champion-actions{gap:16px;margin:10px auto;justify-content:center}
+.champion-cinematic-modal .champion-actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:8px 13px;font-size:13px;min-width:125px}
+@media(max-width:650px){.champion-cinematic-modal .match-podium{max-width:100%}.champion-status-pill{font-size:12px}.champion-cinematic-modal .champion-actions{gap:9px}}
+
+.share-match-row{border-left:4px solid rgba(180,190,180,.5);padding-left:12px!important}
+.share-match-row.stage-group{border-left-color:#58cd7c}.share-match-row.stage-round16{border-left-color:#ffdf60}
+.share-match-row.stage-quarter{border-left-color:#ffa347}.share-match-row.stage-semi{border-left-color:#5c9ff7}.share-match-row.stage-final{border-left-color:#f4656d}
+.share-placement{color:#f7c651}.share-versus{font-size:11px;opacity:.75}
+
+/* Ajustes 11/11: componentes negros translúcidos en el vestuario y perfil. */
+body[data-view='dashboard'] .card,body[data-view='dashboard'] .list-item,
+body[data-view='dashboard'] .profile-stats-strip,body[data-view='dashboard'] .modal,
+body[data-view='profile'] .card,body[data-view='profile'] .list-item,
+body[data-view='profile'] .trophy-card,body[data-view='profile'] .profile-stats-strip{
+  background:rgba(0,0,0,.60);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+/* El estadio ocupa todo el ancho superior; chat y reacciones, debajo. */
+body[data-view='game'] .game-grid{grid-template-columns:minmax(0,1fr);gap:14px}
+body[data-view='game'] .game-board-column{grid-column:1;min-width:0}
+body[data-view='game'] .sidepanel{grid-column:1;width:100%;min-width:0;display:block}
+body[data-view='game'] .sidepanel .chat-card{width:100%;min-width:0}
+body[data-view='game'] .sidepanel .chat-list{height:clamp(108px,17vh,190px)}
+
+/* KPIs de perfil: misma jerarquía vertical que los federativos. */
+.profile-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:13px}
+.profile-kpi{--k:#f6d064;min-height:155px;padding:14px;border:1px solid var(--k);border-radius:12px;
+  display:flex;flex-direction:column;align-items:flex-start;gap:9px;background:rgba(0,0,0,.60);color:var(--k);backdrop-filter:blur(10px)}
+.profile-kpi-icon{width:42px;height:42px;display:grid;place-items:center;border:2px solid currentColor;border-radius:50%;font-size:20px}
+.profile-kpi-icon .fi{display:flex;align-items:center;justify-content:center;line-height:1;width:100%;height:100%}
+.profile-kpi-label{color:#f5f6f0;font-size:13px;font-weight:800;line-height:1.3}
+.profile-kpi b{font-size:28px;line-height:1;margin-top:auto}
+.profile-kpi-win{--k:#eac65e}.profile-kpi-loss{--k:#e88d8d}.profile-kpi-correct{--k:#76dcb9}.profile-kpi-incorrect{--k:#ccaaef}
+
+
+/* Sólo cabecera del torneo: imagen de portada con encuadre persistente. */
+.page-banner.tournament-image-banner{
+  background-image:linear-gradient(180deg,rgba(5,17,14,.65),rgba(5,17,14,.58)),var(--t-banner-image);
+  background-size:cover,cover;
+  background-position:center,var(--t-banner-x,50%) var(--t-banner-y,50%);
+  background-repeat:no-repeat;
+}
+.page-banner.tournament-image-banner.banner-is-repositioning{cursor:grab;touch-action:none;outline:2px dashed #f5d66f;outline-offset:2px;user-select:none}
+.page-banner.tournament-image-banner.banner-is-repositioning:active{cursor:grabbing}
+.banner-is-repositioning .page-banner-copy,.banner-is-repositioning .tournament-banner-trophy{pointer-events:none}
+.tournament-reposition-tools{position:absolute;z-index:8;left:12px;bottom:12px;right:12px;display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:10px;background:rgba(0,0,0,.84);border:1px solid #d6c36b;border-radius:9px;cursor:default}
+.tournament-reposition-tools span{margin-right:auto;color:#fff;font-size:13px;font-weight:700}
+@media(max-width:700px){.tournament-reposition-tools{justify-content:center}.tournament-reposition-tools span{flex-basis:100%;text-align:center}}

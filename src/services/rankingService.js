@@ -44,7 +44,9 @@ async function finalizeGameStats(gameId) {
     const users = await User.findAll({ where: { id: ids }, transaction, lock: transaction.LOCK.UPDATE });
     const byId = new Map(users.map(u => [u.id, u]));
     const ratingEntries = ordered.map(p => ({ userId: p.userId, position: p.resolvedPosition, rating: byId.get(p.userId)?.eloRating || 1000 }));
-    const changes = eloChanges(ratingEntries);
+    // Los amistosos federativos no alteran el ELO ni dan puntos de campeonato.
+    const isFederationFriendly=!!game.state?.settings?.federationFriendly;
+    const changes = isFederationFriendly?new Map(ids.map(id=>[id,0])):eloChanges(ratingEntries);
 
     const answers = await GameQuestion.findAll({ where: { gameId }, transaction, raw: true });
     for (const p of ordered) {
@@ -59,15 +61,18 @@ async function finalizeGameStats(gameId) {
       }, 0);
       const eloBefore = user.eloRating;
       const eloAfter = Math.max(ELO_MIN, eloBefore + (changes.get(p.userId) || 0));
-      user.eloRating = eloAfter;
-      user.lastRankedGameAt = new Date();
-      user.lastEloDecayAt = null;
-      await user.save({ transaction });
+      if(!isFederationFriendly){
+        user.eloRating = eloAfter;
+        user.lastRankedGameAt = new Date();
+        user.lastEloDecayAt = null;
+        await user.save({ transaction });
+      }
 
       let tournamentPoints = 0;
       if (tournament && ['shared_board_league','group_knockout'].includes(tournament.format) && ordered.length > 2 && ['shared_league','group'].includes(match?.stage)) tournamentPoints = sharedBoardPoints(ordered.length, p.resolvedPosition);
       else if (tournament && ['league_1v1','group_knockout'].includes(tournament.format) && ['league','group'].includes(match?.stage)) tournamentPoints = p.resolvedPosition === 1 ? 2 : 0;
 
+      if(p.forfeitedAt)tournamentPoints=0;
       await PlayerGameStat.create({
         gameId,
         userId: p.userId,

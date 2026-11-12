@@ -2,7 +2,7 @@ const { shuffle } = require('../utils/random');
 const { validateTournamentSettings } = require('./tournamentRules');
 
 function validateBoardSize(size) {
-  if (!Number.isInteger(size) || size < 25 || size > 70 || size % 5 !== 0) throw new Error('El tablero debe tener entre 25 y 70 casilleros en múltiplos de 5.');
+  if (!Number.isInteger(size) || size < 30 || size > 70) throw new Error('El tablero debe tener entre 30 y 70 casilleros.');
 }
 
 function isPowerOfTwo(n) { return n > 0 && (n & (n - 1)) === 0; }

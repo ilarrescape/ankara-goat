@@ -1,0 +1,119 @@
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#090f0d;color:#eef5e7}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 40% 40%,#1a3325,#09100d 75%)}button,select{font:inherit}button{cursor:pointer;border:1px solid #61715e;background:#1c3026;color:#e8f4e5;border-radius:8px;padding:10px 14px}button:hover{background:#31513c}button:disabled{opacity:.45;cursor:not-allowed}.topbar{height:74px;display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:#08100be8;border-bottom:2px solid #b2de4e}.brand{font-weight:1000;font-size:26px;letter-spacing:-1.2px;color:#f7efc5}.brand span{color:#9be342}.brand small{display:block;font-size:10px;font-weight:700;letter-spacing:2.1px;color:#8a9a89}.actions{display:flex;gap:8px}main{display:grid;grid-template-columns:minmax(0,1fr) 314px;min-height:calc(100vh - 74px)}.viewport{min-height:660px;position:relative;overflow:hidden;touch-action:none;cursor:grab;background:radial-gradient(ellipse at center,#25432f 0%,#0b1c13 60%,#07110c 100%)}.viewport:active{cursor:grabbing}.scene{position:absolute;inset:0;perspective:1800px;perspective-origin:50% 50%;pointer-events:none}.ground{position:absolute;inset:-50%;background:repeating-linear-gradient(0deg,#ffffff05 0 2px,transparent 2px 80px),repeating-linear-gradient(90deg,#ffffff05 0 2px,transparent 2px 80px);transform:rotateX(60deg) translateZ(-180px);opacity:.4}.arena{position:absolute;width:1230px;height:1500px;left:50%;top:50%;transform-style:preserve-3d;transform-origin:center;will-change:transform}.pitch,.tier,.wall,.support{position:absolute;transform-style:preserve-3d;backface-visibility:visible}.pitch{width:510px;height:756px;left:360px;top:370px;background:#26633f url('texturas/cancha/tablero.webp') center/100% 100% no-repeat;transform:translateZ(22px);border:5px solid #4c3726;box-shadow:0 0 0 10px #202e23,0 18px 24px #0009}.pieces{position:absolute;inset:0}.piece{position:absolute;width:24px;height:24px;border-radius:50%;background:var(--color);border:4px solid #faf4df;box-shadow:0 3px 0 #18241c,0 6px 7px #000a;transform:translate(-50%,-50%) translateZ(16px);transition:left .19s linear,top .19s linear;display:grid;place-items:center;color:#111;font-size:10px;font-weight:1000}.piece::before{content:'';position:absolute;inset:3px;border-radius:50%;background:#ffffff68}.piece.jump{animation:hop .23s ease-in-out}.piece.winner{box-shadow:0 0 22px 10px #efdd37}.tier{background-position:center;background-size:100% 100%;background-repeat:no-repeat;box-shadow:inset 0 0 0 2px #25180e,0 3px 0 #2a1c15;transform:translateZ(var(--z));filter:drop-shadow(0 1px 1px #0009)}.tier::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#fff2,transparent 45%,#0005);pointer-events:none}.support{background:linear-gradient(#615849,#2a2822);opacity:.85}.wall{background-size:100% 100%;background-position:center;box-shadow:0 0 0 3px #282823,0 4px 25px #0009;transform-origin:center}.compass{position:absolute;z-index:2;top:17px;left:18px;display:grid;gap:3px;text-align:center;color:#cce6ba;background:#06120ac9;padding:10px;border:1px solid #446048;border-radius:8px;font-size:11px;font-weight:800;pointer-events:none}.compass span:first-child{color:#c6fa6c}.viewHelp{position:absolute;bottom:20px;left:20px;color:#dbebd1b5;background:#07120bd4;border-radius:8px;padding:9px 12px;font-size:12px;pointer-events:none}.zoom{position:absolute;right:18px;bottom:18px;display:grid;gap:7px}.zoom button{font-size:22px;padding:3px 12px}.side{background:#0c1510;border-left:1px solid #415640;padding:22px;display:flex;flex-direction:column;gap:13px}.panel-title{font-weight:1000;font-size:18px;letter-spacing:1px;display:flex;flex-direction:column;gap:4px}.offline{color:#a7e562;font-size:10px;letter-spacing:1px}.form-label{color:#bacab6;font-size:12px;margin-top:8px}select{background:#17271c;border:1px solid #53654e;border-radius:8px;color:#fff;padding:10px}.players{display:grid;grid-template-columns:1fr 1fr;gap:7px}.player{display:flex;align-items:center;gap:7px;font-size:12px;background:#15221a;border:1px solid #364a37;border-radius:7px;padding:8px}.player.active{border-color:#c5ef69;background:#274029}.swatch{width:15px;height:15px;border-radius:50%;background:var(--color);border:2px solid #f6f0dc;flex-shrink:0}.player span:last-child{margin-left:auto;color:#abbea9}.turn{background:#253e2b;border-left:4px solid #afeb4f;padding:12px;border-radius:5px;font-weight:700}.diceArea{position:relative;height:192px;border:1px solid #374a3a;border-radius:12px;background:radial-gradient(ellipse at center,#37533b,#14251c 70%);display:grid;place-items:center;perspective:600px}.diceStage{width:92px;height:92px;transform-style:preserve-3d}.dice{position:relative;width:92px;height:92px;transform-style:preserve-3d;transform:rotateX(-24deg) rotateY(-32deg);transition:transform 1.6s cubic-bezier(.2,.8,.24,1)}.face{position:absolute;width:92px;height:92px;background:linear-gradient(135deg,#fffef1,#d8dbc8);border:2px solid #778277;box-shadow:inset 0 0 12px #89998555;display:block;border-radius:0}.front{transform:translateZ(46px)}.back{transform:rotateY(180deg) translateZ(46px)}.right{transform:rotateY(90deg) translateZ(46px)}.left{transform:rotateY(-90deg) translateZ(46px)}.top{transform:rotateX(90deg) translateZ(46px)}.bottom{transform:rotateX(-90deg) translateZ(46px)}.pip{position:absolute;width:15px;height:15px;background:#15211b;border-radius:50%;box-shadow:inset 2px 2px 3px #0008}.tl{top:15%;left:15%}.tr{top:15%;right:15%}.ml{top:calc(50% - 7.5px);left:15%}.mr{top:calc(50% - 7.5px);right:15%}.bl{bottom:15%;left:15%}.br{bottom:15%;right:15%}.center{top:calc(50% - 7.5px);left:calc(50% - 7.5px)}.diceNumber{position:absolute;right:15px;bottom:12px;font-weight:1000;font-size:25px;color:#d7fb99}.roll{background:#c1e95d;color:#102012;border:0;font-weight:1000;font-size:16px;padding:15px}.roll:hover{background:#ddf98c}.status{min-height:42px;color:#c6d9c2;font-size:13px;line-height:1.5;margin:0}.legend{border-top:1px solid #354838;padding-top:12px;margin-top:auto;font-size:12px;color:#9bad98;line-height:1.6}.legend strong{color:#dfebd6}.legend p{margin:5px 0 0}@keyframes hop{0%,100%{translate:0 0}48%{translate:0 -28px;filter:brightness(1.35)}}@media(max-width:850px){main{grid-template-columns:1fr}.viewport{min-height:60vh}.side{border-left:0;border-top:1px solid #53664e}.topbar{padding:10px;gap:8px}.brand{font-size:20px}.actions button{font-size:11px;padding:7px}.viewHelp{max-width:240px}}
+/* Volumen de graderías: superficies verticales entre los cinco pisos. */
+.riser,.understep{position:absolute;left:0;top:0;transform-style:preserve-3d;backface-visibility:visible;transform-origin:top left}
+.riser{background-size:100% 100%;background-position:center;filter:brightness(.72);border-top:1px solid #bba783;border-bottom:2px solid #171b13;box-shadow:0 4px 7px #0009}
+.understep{background:linear-gradient(90deg,#3e3c30,#242b24 45%,#151d17);opacity:.98}
+.tier{box-shadow:inset 0 0 0 2px #241b10,0 2px 0 #9b8155,0 5px 9px #000a}
+.wall{outline:3px solid #292921;filter:brightness(.86);box-shadow:0 0 0 6px #292720,0 12px 28px #000a}
+/* Imprescindible: evita que CSS aplane las caras verticales de las tribunas. */
+#stands,#walls{transform-style:preserve-3d;position:absolute;inset:0;pointer-events:none}
+.scene{transform-style:preserve-3d}
+.arena{transform-style:preserve-3d}
+.riser,.understep{backface-visibility:visible}
+/* Escalones de hormigón macizo y tablones de madera con canto propio. */
+.concrete-face,.plank-edge,.concrete-rib{position:absolute;left:0;top:0;transform-origin:top left;backface-visibility:visible}
+.concrete-face{background:repeating-linear-gradient(90deg,transparent 0 95px,#171f1b3b 96px 99px,transparent 101px 190px),linear-gradient(0deg,#343b38 0%,#767973 52%,#96958a 100%);border:2px solid #2b312b;box-shadow:inset 0 0 0 5px #b9b5a51c,0 3px 13px #0009}
+.plank-edge{background-size:100% 100%;background-position:center;filter:brightness(.78) saturate(1.3);border-top:3px solid #c7b187;border-bottom:4px solid #221a11;box-shadow:0 5px 7px #0009}
+.concrete-rib{background:linear-gradient(90deg,#252c29,#b0aca0 35%,#4a504c 72%,#252b29);box-shadow:3px 0 7px #0008;opacity:.9}
+.wall{background:#555c56;border:8px solid #444b46;box-shadow:inset 0 0 0 8px #98998a,0 0 0 7px #272f2a,0 15px 30px #000a!important}
+.wall-art{position:absolute;inset:0;background-size:100% 100%;background-repeat:no-repeat;backface-visibility:visible}
+.wall-art.flipped{transform:rotate(180deg)}
+.wall-cap{position:absolute;top:-12px;left:-8px;right:-8px;height:12px;background:linear-gradient(#aaaba1,#4d544e);box-shadow:0 -2px 4px #171f19}
+/* Estadio de referencia: madera superior, cantos macizos, laterales de concreto. */
+.seat-recess,.seat-edge,.concrete-gable{position:absolute;left:0;top:0;transform-origin:top left;backface-visibility:visible}
+.seat-recess{background:linear-gradient(#181a16,#30332d 45%,#171b17);box-shadow:inset 0 2px 8px #000a}
+.seat-edge{background:repeating-linear-gradient(3deg,#8a4c25 0 3px,#b77c45 4px 9px,#d1a371 10px 12px,#713b1f 13px 18px);border-top:2px solid #e0b884;border-bottom:3px solid #382319;box-shadow:0 4px 9px #0009}
+.concrete-gable{background:linear-gradient(95deg,#aaa99e,#77786f 52%,#b1b0a4);border:3px solid #656b64;box-shadow:inset 3px 0 8px #0003,2px 2px 8px #0008}
+.tier{filter:none!important;box-shadow:inset 0 0 0 3px #6b4e31,0 3px 0 #654326,0 7px 10px #0008!important}
+.tier::after{background:linear-gradient(to bottom,#ffedbd19,transparent 40%,#00000025)!important}
+.wall{border:5px solid #777971!important;box-shadow:0 0 0 5px #50534c,0 10px 17px #0007!important}
+/* Cara superior de cada tablón: elevada por encima de todo el concreto. */
+.wood-deck{background-size:100% 100%!important;background-position:center!important;background-repeat:no-repeat!important;outline:1px solid #432916;filter:none!important;box-shadow:inset 0 2px 0 #f6c98a73,inset 0 -2px 0 #301c12,0 5px 0 #633e24,0 13px 12px #0008!important}
+.wood-deck::after{background:linear-gradient(to bottom,#ffdb8a12,transparent 72%,#180e0940)!important}
+.seat-edge{background:linear-gradient(to bottom,#d8a16d,#985b31 42%,#5e321d 85%,#281a12)!important;border-top:3px solid #dfb17b;border-bottom:2px solid #342016}
+.concrete-gable{background:linear-gradient(95deg,#aaa99e,#7e8179 52%,#b1b0a4)!important}
+/* V5: el dibujo ocupa toda la pared, sin marcos grisáceos de 5px + sombra. */
+.wall{border:0!important;outline:0!important;background:transparent!important;box-shadow:none!important;filter:none!important}
+.wall-art{inset:-1px;background-size:100% 100%!important;background-repeat:no-repeat!important}
+.wall-cap{display:none}
+/* Cuatro paredes diagonales cierran el perímetro abierto en las esquinas. */
+.corner-wall{transform-origin:top left;backface-visibility:visible}
+.corner-wall .wall-art{inset:-1px}
+/* V6: tablero generado sobre el césped; centrado en cualquier cantidad. */
+.board-cells{position:absolute;top:50%;left:50%;display:flex;flex-direction:column-reverse;transform:translate(-50%,-50%) translateZ(3px);transform-style:preserve-3d;pointer-events:none}
+.board-row{display:flex;width:100%;justify-content:center;align-items:stretch;flex-shrink:0}
+.board-cell{position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-sizing:border-box;border:2px solid #d9ded6;border-radius:0;background:transparent;box-shadow:0 1px 2px #0007;overflow:hidden}
+.cell-number{display:block;width:68px;max-width:96%;object-fit:fill;position:relative;z-index:1;filter:drop-shadow(1px 1px 0 #0007)}
+.pieces{transform-style:preserve-3d;pointer-events:none}
+.cell-count-selector{display:flex;gap:13px;align-items:center;padding:8px 10px;background:#16271c;border:1px solid #4d684b;border-radius:8px}
+.cell-count-selector input{flex:1;min-width:0;accent-color:#b7e864;cursor:pointer}
+.cell-count-selector input:disabled{opacity:.46;cursor:not-allowed}
+.cell-count-selector output{min-width:47px;text-align:center;font-weight:1000;font-size:20px;color:#d9fa9b;background:#263d26;border:1px solid #506a42;padding:5px 8px;border-radius:5px;font-variant-numeric:tabular-nums}
+.selector-hint{font-size:11px;line-height:1.45;color:#afc2a6;margin-top:-7px}
+/* Integración: el estadio sólo representa el estado autoritativo remoto. */
+body.embedded,body.embedded main{height:100vh;min-height:0;overflow:hidden}
+body.embedded .topbar,body.embedded .side{display:none!important}
+body.embedded main{display:block}
+body.embedded .viewport{min-height:0;height:100vh;width:100vw}
+body.embedded .compass{padding:6px;font-size:9px}
+body.embedded .viewHelp{font-size:10px;bottom:8px;left:8px}
+body.embedded .zoom{bottom:8px;right:8px}
+body.embedded .diceArea{position:absolute;right:12px;top:10px;z-index:5;width:92px;height:92px;transform:scale(.7);transform-origin:top right;pointer-events:none}
+body.embedded .diceArea .diceStage{transform:scale(.7)}
+body.embedded .diceNumber{font-size:18px}
+.board-cell.special{border-color:#ffe786;box-shadow:inset 0 0 0 2px #f5b21d,0 0 13px #ffd466}
+.board-cell.finish{border-color:#e7df78;box-shadow:inset 0 0 0 2px #f3cc58}
+.piece{width:38px;height:38px;border-width:3px;overflow:hidden;background:linear-gradient(135deg,var(--color),var(--secondary,var(--color)))}
+.piece::before{display:none}
+.piece-crest{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;background:#fff}
+
+/* Control del dado dentro del estadio — no hay modal ni overlays de TV. */
+body.embedded .diceArea{pointer-events:auto;transition:box-shadow .2s,border-color .2s;isolation:isolate}
+body.embedded .diceArea.is-allowed{border-color:#baff77;box-shadow:0 0 0 2px #baff7780,0 0 15px #75fbb24d}
+body.embedded .diceArea.is-rolling{border-color:#f7d85a;box-shadow:0 0 12px #ffd86c80}
+body.embedded .diceTap{position:absolute;inset:0;display:block;width:100%;height:100%;padding:0;margin:0;border:0;background:transparent;z-index:6;cursor:pointer}
+body.embedded .diceTap:disabled{cursor:not-allowed;opacity:1}
+body.embedded .diceArea.is-allowed:hover{filter:brightness(1.15)}
+body.embedded .diceArea .diceCountdown{position:absolute;right:4px;top:-14px;font-size:13px;font-weight:900;color:#edffb9;text-shadow:0 1px 4px #000;pointer-events:none}
+body.embedded.desktop-view .piece{width:53.2px;height:53.2px;border-width:3px}
+body.embedded .piece{transition:left .26s ease-in-out,top .26s ease-in-out;will-change:left,top}
+body.embedded .piece-crest{image-rendering:auto;object-fit:contain;background:#e9f1e7}
+body.embedded .pitch .pieces{overflow:visible}
+
+/* TABLERO V1.2 — HUD del turno fijo respecto de la ventana, no de la cámara. */
+body.embedded .board-turn-hud{
+  position:absolute;top:15px;left:80px;z-index:8;pointer-events:none;
+  display:flex;flex-direction:column;gap:3px;max-width:min(55%,370px);
+  padding:9px 14px;border:1px solid rgba(169,242,159,.48);border-radius:9px;
+  background:rgba(4,22,17,.88);color:#efffe4;
+  box-shadow:0 4px 20px #0008;backdrop-filter:blur(5px);
+}
+body.embedded .board-turn-hud[hidden]{display:none}
+body.embedded .board-turn-label{font-size:11px;letter-spacing:2px;font-weight:900;color:#66efce}
+body.embedded .board-turn-name{font-size:clamp(15px,2.2vw,23px);font-weight:850;line-height:1.2;overflow-wrap:anywhere}
+/* Separado del dado escalado: el contador se lee grande incluso con zoom bajo. */
+body.embedded #diceCountdown{
+  position:absolute;top:18px;right:94px;z-index:8;pointer-events:none;
+  font-size:48px;font-weight:1000;letter-spacing:-1px;line-height:1;
+  color:#eaff9f;text-shadow:0 2px 5px #000,0 0 12px #07160d;
+  font-variant-numeric:tabular-nums;
+}
+body.embedded #diceCountdown[hidden]{display:none}
+/* Fichas como discos macizos, no pegatinas planas. Preserva dimensiones. */
+body.embedded .piece{
+  overflow:visible;border:4px solid #f3e9ce;
+  box-shadow:0 3px 0 #b3a583,0 6px 0 #7b7057,0 9px 0 #403b32,0 12px 10px #000b,
+             inset 0 1px 3px #ffffff9c;
+}
+body.embedded .piece::before{
+  display:block;content:'';position:absolute;inset:-4px;border-radius:50%;
+  border:2px solid #ffffff75;box-shadow:inset 0 2px 3px #fff7,0 1px 2px #0007;
+  background:transparent;pointer-events:none;z-index:2;
+}
+body.embedded .piece-crest{border-radius:50%;overflow:hidden;z-index:1}
+@media(max-width:700px){
+  body.embedded .board-turn-hud{top:8px;left:65px;padding:6px 9px;max-width:calc(100% - 205px)}
+  body.embedded .board-turn-label{font-size:9px;letter-spacing:1px}
+  body.embedded .board-turn-name{font-size:13px}
+  body.embedded #diceCountdown{top:16px;right:70px;font-size:26px}
+}

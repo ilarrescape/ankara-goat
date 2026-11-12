@@ -12,7 +12,7 @@ const ROULETTE_BASE = [
 ];
 
 function assertBoardSize(size) {
-  if (!Number.isInteger(size) || size < 25 || size > 70 || size % 5 !== 0) throw new Error('Tablero inválido.');
+  if (!Number.isInteger(size) || size < 30 || size > 70) throw new Error('Tablero inválido: se permiten de 30 a 70 casilleros.');
 }
 
 function createTurnToken() {
@@ -108,6 +108,8 @@ function forfeitPlayer(state, userId, reason = 'disconnect_timeout') {
     state.pendingMove = null;
     state.pendingVideo = null;
     state.pendingSurprise = null;
+    state.pendingRoulette = null;
+    state.resultPending = null;
   }
 
   const remaining = activePlayers(state);
@@ -181,6 +183,17 @@ function eligibleRouletteTargets(state, ownerUserId) {
   return state.players.filter(p => p.active && p.finishOrder == null && Number(p.userId)!==Number(ownerUserId));
 }
 
+// Registrar la llegada a meta para CUALQUIER movimiento confirmado, no sólo
+// para respuestas correctas. La ruleta puede avanzar o intercambiar fichas.
+// nextTurn() conserva el comportamiento normal: si quedan otros jugadores,
+// siguen compitiendo por las posiciones restantes.
+function recordFinishAtGoal(state, player) {
+  if (!player?.active || player.finishOrder != null || player.position < state.boardSize) return false;
+  player.finishOrder = state.winnerIds.length + 1;
+  state.winnerIds.push(player.userId);
+  return true;
+}
+
 function applyRouletteEffect(state, targetUserId = null) {
   if (!['roulette_spinning','roulette_target'].includes(state.phase) || !state.pendingRoulette?.effect) throw new Error('No hay un resultado de ruleta pendiente.');
   const player = currentPlayer(state);
@@ -206,6 +219,12 @@ function applyRouletteEffect(state, targetUserId = null) {
     }
     case 'points_take':
     case 'points_loss': break; // La persistencia de puntos del campeonato se resuelve en el socket/servicio.
+  }
+  // La llegada por ruleta debe premiarse en ESTE turno, antes de avanzar
+  // el fixture. Se revisan también los intercambios con un rival.
+  if (state.phase !== 'finished') {
+    recordFinishAtGoal(state, player);
+    if (target) recordFinishAtGoal(state, target);
   }
   const result={ type:effect.type, amount:effect.amount??null, targetUserId:target?.userId??null, ownerUserId:player.userId, from:before, to:player.position };
   state.pendingRoulette={ ...state.pendingRoulette, status:'resolved', result };
@@ -343,10 +362,7 @@ function answerQuestion(state, userId, answeredCorrectly, surpriseTargetUserId =
   const landedOnSpecial = !!(answeredCorrectly && state.pendingSurprise && state.surprises?.[to]);
   const surpriseResult = { type: landedOnSpecial ? 'roulette' : null, applied: false, polarity: null };
 
-  if (answeredCorrectly && player.position >= state.boardSize && player.finishOrder == null) {
-    player.finishOrder = state.winnerIds.length + 1;
-    state.winnerIds.push(player.userId);
-  }
+  if (answeredCorrectly) recordFinishAtGoal(state, player);
 
   state.currentQuestion = null;
   state.pendingVideo = null;
@@ -413,7 +429,7 @@ function nextTurn(state) {
   for (let tries = 0; tries < state.players.length; tries++) {
     idx = (idx + 1) % state.players.length;
     const candidate = state.players[idx];
-    if (candidate.active && candidate.finishOrder == null) {
+    if (candidate.active && candidate.finishOrder == null && state.presence?.[String(candidate.userId)]?.connected !== false) {
       state.turnIndex = idx;
       state.turnNo += 1;
       state.turnToken = createTurnToken();
@@ -425,11 +441,20 @@ function nextTurn(state) {
     }
   }
 
-  state.phase = 'finished';
-  state.turnToken = null;
-  state.finishReason = state.finishReason || 'completed';
-  state.finishedAt = state.finishedAt || Date.now();
+  // Todos pueden estar temporalmente desconectados: no se declara campeón
+  // hasta que venza su plazo. El primer usuario que regrese reanuda el turno.
+  state.phase='roll';state.turnToken=createTurnToken();state.lastActionAt=Date.now();
   return null;
+}
+
+function resumeTurnOnReconnect(state,userId){
+  if(state.phase!=='roll')return false;
+  const current=state.players[state.turnIndex];
+  if(current?.active && current.finishOrder==null && state.presence?.[String(current.userId)]?.connected!==false)return false;
+  const index=state.players.findIndex(p=>Number(p.userId)===Number(userId)&&p.active&&p.finishOrder==null);
+  if(index<0)return false;
+  state.turnIndex=index;state.turnNo+=1;state.turnToken=createTurnToken();state.lastActionAt=Date.now();
+  return true;
 }
 
 function finishRouletteTurn(state) {
@@ -456,7 +481,7 @@ module.exports = {
   setQuestion,
   answerQuestion,
   completeResultPhase, armRoulette,
-  nextTurn,
+  nextTurn, resumeTurnOnReconnect,
   pendingAbsences,
   hasPendingAbsence,
   forfeitPlayer
